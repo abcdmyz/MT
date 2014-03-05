@@ -20,7 +20,7 @@
 
 如图\ref{fact_table_data_cube} 所示，(a) 为事实表 R， A、B、C 为它的维属性，M 为它的度量属性。(b) 展示的是基于事实表 R 构建的数据立方。（b）中的每个视图代表的就是某个特定维属性组合的 GROUP BY 结果。所有 GROUP BY 结果的组合即构成数据立方。
 
-\begin{figure}[hbtp]
+\begin{figure}[!htb]
 \centering\includegraphics[width=6in]{picture/ch_preliminary/fact_table_data_cube} 
 \caption{事实表与数据立方}\label{fact_table_data_cube} 
 \end{figure} 
@@ -29,12 +29,14 @@
 
 对于图\ref{fact_table_data_cube} 中的所有GROUP BY，可用另一种方式表示，如图\ref{abc_lattice} 所示，这种结构称为 Lattice。
 
-\begin{figure}[hbtp]
+\begin{figure}[!htb]
 \centering\includegraphics[width=2in]{picture/ch_preliminary/abc_lattice} 
 \caption{ABC Lattice}\label{abc_lattice} 
 \end{figure} 
 
-在这个lattice中，有维属性对应的所有 GROUP BY 类型，每个节点表示一种 GROUP BY 类型，箭头连接的两个节点表示它们有父子关系。在lattice中的每个节点又称为一个Region，也就是一种 GROUP BY 类型。一个 region 内有多个 group。group 指的是一个
+在这个lattice中，有维属性对应的所有 GROUP BY 类型，每个节点表示一种 GROUP BY 类型，箭头连接的两个节点表示它们有父子关系。在lattice中的每个节点称为一个数据小方 (Cuboid)，数据小方也可被称为一个Region，也就是一种 GROUP BY 类型。在之后的章节中，数据小方与 region 这两种称呼均会被提及。
+
+一个 region 内有多个 group。group 指的是一个
 Region中带有具体值的 Group By。例如图\ref{fact_table_data_cube} 中的 GroupBy(A)，就有表\ref{groupby_a_table}的结果。
 
 \begin{table}[hbtp]
@@ -101,14 +103,14 @@ MapReduce是Google提出的一个软件架构，用于大规模数据集的并�
 \item Reducer对输入的键值对进行处理后输出。具有相同Key值的数据会被分派到同一个Reducer任务上。
 \end{enumerate}
 
-\begin{figure}[hbtp]
+\begin{figure}[!htb]
 \centering\includegraphics[width=6in]{picture/ch_preliminary/mr_data_flow} 
 \caption{MapReduce的数据流动}\label{mr_data_flow} 
 \end{figure} 
 
 图\ref{mr_word_count}是用MapReduce进行单词统计的例子。
 
-\begin{figure}[hbtp]
+\begin{figure}[!ht]
 \centering\includegraphics[width=6in]{picture/ch_preliminary/mr_word_count} 
 \caption{MapReduce单词统计例子}\label{mr_word_count} 
 \end{figure} 

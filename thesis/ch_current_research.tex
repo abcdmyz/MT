@@ -77,12 +77,52 @@ Harinarayan 等人在1996 年提出的贪心算法 BPUS \cite{harinarayan1996imp
 
 \section{分布式数据立方的计算研究}
 
-随着计算量的极速增长，对于 OLAP 技术中的关键技术 —— 数据立方，业界也开始研究利用分布式计算的优势实现数据立方的方法。\cite{nandi2011distributed} \cite{dehne2006cgmcube} \cite{ng2011iceberg} \cite{lee2012efficient}。
+随着计算量的极速增长，对于 OLAP 技术中的关键技术 —— 数据立方，业界也开始研究利用分布式计算的优势实现数据立方的方法。\cite{nandi2011distributed} \cite{dehne2006cgmcube} \cite{ng2001iceberg} \cite{lee2012efficient}。
 
-cgmCUBE \cite{dehne2006cgmcube}、RP、BPP、ASL \cite{lee2012efficient} 这几个算法是基于由少量 PC 机组成的集群实现的，无法适应 TB 级的处理数据量，也并没有与MapReduce框架相结合，同时无法处理整体性度量计算。
+\cite{ng2001iceberg} 中提出了在由一定数量的 PC机 组成的集群上计算数据立方的方法，包括了RP、BPP、ASL、PT。因为该论文提出的实现环境是集群，因此这4种方法都涉及如何将计算分配到多个节点上。以下简单地阐述这4种方法。
 
-MR-CUBE[5][14]是基于 MapReduce 提出的数据立方算法，该算法结合了MapReduce 与数据立方计算的特点，能够达到高效实现 TB 级数据量的数据立方计算。MR-CUBE 针对整体性度量 measure 提出了相应的分布式计算思路，并指出了其中 2 种整体性度量 measure 实际的分布式计算处理方法。 为了避免MapReduce 集群节点间的数据分布不均衡，MR-CUBE 采用对基表进行采样的方法来决定如何在后续计算中对数据小方进行切割以使得集群节点间的装载平衡。利用数据立方小方间计算过程可共享的特性， MR-CUBE 对原数据立方lattice 进行分支，使得每个分支能在共享一套数据的基础上进行 BUC 计算，从而降低了 MapReduce 的中间处理数据量。
+\begin{itemize}
 
-虽然 MR-CUBE 是目前基于 MapReduce 框架一个较好的数据立方实现尝试。但与此同时，MR-CUBE 现有的一些不足不得不提。MR-CUBE 的数据切割是基于整个数据小方的，当数据小方内某个元组的计算数据过度倾斜，而其他元组的计算数据都较小时，对整个数据小方进行切割就会导致其他小方元组不必要的切割。过多的切割会导致后续的合并计算过多，当数据过度倾斜时，这种切割方式的劣势就会显得十分明显。此外，MR-CUBE 的 lattice 分支方式是基于手工经验值，当数据立方维度过高时，自动有效的划分合理的分支就显得十分必要。而且，在 MR-CUBE 的实验中只探讨了 2 种整体性度量方法的分布式计算方法，提出更多个整体性度量方法的分布式计算方式，甚至是一般化的、自动化的整体性度量分布式计算有助于日后的 MapReduce Cube 一般化实现。另外，MR-CUBE 的实验也只是探讨了 2 到 3 维的低维数据立方的实现，对于高维的数据立方实现，MR-CUBE 算法可能会暴露更多的不足。
+\item \textbf{RP(Replicated Parallel BUC)}
 
-除了 MR-CUBE 外，此外针对 MapReduce 框架进行数据立方分布式实现的算法研究还有 MRPipeLevel[18] ，Parallel Closed Cubeing[24] 。 其 中MRPipeLevel 是基于 PipeSort 实现的，而 Parallel Closed Cubeing 则是针对封闭立方体(Closed Cube)[40]，一种基于无损压缩的数据立方体实现方法。
+RP 对计算的划分非常简单，基本与 BUC 相似，若有 m 个维属性，则将计算划分为 m 个子任务。每个任务处理与一个维属性相关的所有小方的计算。如图 \ref{cluster_rp} 所示，图中因为共有 4 个维属性 ABCD，因此可将计算划分为 4 个子任务，分别计算从维属性 A，B，C，D 出发的各个数据小方。
+
+\begin{figure}[!htb]
+\centering\includegraphics[width=3in]{picture/ch_current_research/cluster_rp} 
+\caption{RP 的任务划分图}\label{cluster_rp} 
+\end{figure} 
+
+\item \textbf{BPP(Breadth-first writing, Partitioned, Parallel BUC)}
+
+RP 的划分非常简单，同时也存在非常严重的负载均衡问题，有一些任务需要进行大量的计算，如图 \ref{cluster_rp} 中的维属性 A 对应的任务，而有一些则只需要进行非常少量的计算，如 D。BPP 则可以解决该问题。BPP 借鉴了 \cite{ross1997fast} 中的 Partitioned-Cube 算法。
+
+对于一个属性 ${R}_{i}$，根据其属性值的范围，将数据集划分为 n 个子块，而 n 正是节点的数量。对于每个属性都进行类似的划分操作。因此，若有 m 个维属性，则有 $n \times m$ 个子块。多个属性的子块划分可同时进行，最后将这些子块分发到各个节点上计算相应的数据小方。
+
+这样的方法比 RP 相比，负载均衡的问题就减轻不少。
+
+\item \textbf{ASL(Affinity SkipList)}
+
+ASL 使用跳表来维护小方内的数据。跳表的一个重要特征是其有序性。因此若对数据小方 ABCD 维护了一张跳表，则可从调表上计算 ABC，AB，A 这三个数据小方。这个与 Pipesort 类似。若要计算的小方并没有建立跳表，但它是已建立跳表的小方的后缀，则仍可从已建立的跳表中较快速地计算。如小方 BCD 可从 ABCD 中计算获得，相比从原数据中计算获得有更高的效率。如果以上两种情况都不满足，只能重新构建跳表。
+ 
+\item \textbf{PT(Partitioned Tree)}
+
+PT 是对 lattice 不断使用二分划分的方法，直到划分的子 lattice 的数量与节点数量相同则停止。图 \ref{cluster_pt} 是 PT 的任务划分图。
+
+\begin{figure}[!htb]
+\centering\includegraphics[width=4in]{picture/ch_current_research/cluster_pt} 
+\caption{PT 的任务划分图}\label{cluster_pt} 
+\end{figure} 
+
+\end{itemize}
+
+
+cgmCUBE \cite{dehne2006cgmcube}、RP、BPP、ASL、PT\cite{lee2012efficient} 这几个算法是基于由少量 PC 机组成的集群实现的，无法适应 TB 级的处理数据量，也并没有与 MapReduce 框架相结合。 \cite{you2008parallel} \cite{sergey2009applying} 虽将数据立方的计算与 MapReduce结合，但无法很好地处理整体性度量函数的计算，也并没有考虑到数据倾斜的情况。
+
+MR-Cube[5][14]是基于 MapReduce 提出的数据立方算法，该算法结合了 MapReduce 与数据立方计算的特点，能够达到高效实现 TB 级数据量的数据立方计算。MR-Cube 针对整体性度量函数提出了相应的分布式计算思路，并指出了其中 2 种整体性度量函数实际的分布式计算处理方法。 为了避免MapReduce 集群节点间的数据分布不均衡，MR-Cube 采用对基表进行采样的方法来决定如何在后续计算中对数据小方进行切割以使得集群节点间的装载平衡。利用数据立方小方间计算过程可共享的特性， MR-Cube 对原数据立方lattice 进行分支，使得每个分支能在共享一套数据的基础上进行 BUC 计算，从而降低了 MapReduce 的中间处理数据量。
+
+虽然 MR-Cube 是目前基于 MapReduce 框架一个较好的数据立方实现尝试。但与此同时，MR-CUBE 现有的一些不足不得不提。MR-Cube 的数据切割是基于整个数据小方的，当数据小方内某个元组的计算数据过度倾斜，而其他元组的计算数据都较小时，对整个数据小方进行切割就会导致一些元组不必要的切割。过多的切割会导致后续的合并计算过多，当数据过度倾斜时，这种切割方式的劣势就会显得十分明显。并且在 lattice 分支上使用 BUC 的计算，没有充分利用 MapReduce的特性，BUC 需要对数据扫描多次，这样导致多次I/O或者需要将数据都载入内存。
+
+由于本文的主要工作是对 MR-Cube 进行改进，因此关于 MR-Cube 主要的贡献和存在的不足将在下一章详细说明。
+
+
+

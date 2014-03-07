@@ -1,10 +1,12 @@
 \chapter{引言}
 
 \section{研究背景}
-随着计算机的普及，计算机逐渐被各行各业用于复杂的数据计算中。由于许多项目的数据计算量过大，复杂性过高，单机计算已无法满足这些项目的计算要求。如由斯坦福大学化学系的Pande小组在2000年启动的，一个关于研究蛋白质折叠、误折、聚合及由此引起的相关疾病的分析计算工程 Folding@home \cite{folding}，一台普通计算机一天只能模拟 1 纳秒的蛋白质折叠过程，但一个蛋白质折叠过程是以数十毫秒(10000 纳秒)作为时间单位的。如此庞大的计算量单由一台普通计算机完成，在时间上是难以让人接受的，而使用超级计算机则会在代价上让人无法容忍。面对惊人的计算量，选择成千上万廉价的计算机组成一个分布式计算系统是一个能够在满足时间和成本代价的基础上解决上述项目难题的较为流行的办法。
+随着计算机的普及，计算机逐渐被各行各业用于复杂的数据计算中。由于许多项目的数据计算量过大，复杂性过高，单机计算已无法满足这些项目的计算要求。面对惊人的计算量，选择成千上万廉价的计算机组成一个分布式计算系统是一个能够在满足时间和成本代价的基础上解决上述项目难题的较为流行的办法。
 
 谷歌提出了 MapReduce \cite{dean2008mapreduce}分布式计算框架，该框架主要是用于谷歌的网页查询日志、爬虫文档等大量的原始数据的分布式计算分析。 随着 Hadoop \cite{hadoop}开源项目的发展，MapReduce 渐已成为目前业界流行的大数据分布式计算框架，它具有高度的集群稳定性及高效的规模扩展性。MapReduce 最初是用于处理互联网业务所产生的大量的非结构化数据，例如如 Amazon 的搜索门户\url{A9.com}利用 MapReduce 对其商品创建搜索索引。由于信息技术及万维网技术的高速发展，信息领域的数据呈爆炸性增长。数据增长带来的挑战不单是庞大的数据体积，还有复杂的数据结构。鉴于 MapReduce 在处理非结构化数据上的卓越成就，相应的业界希望能够扩展 MapReduce 处理结构化数据的能力 \cite{hbase} \cite{abouzeid2009hadoopdb} \cite{buck2011scihadoop} \cite{pig} \cite{hive}。如 HBase \cite{hbase}，一种基于 Hadoop 的面向
 列的数据库，是一个结构化数据的分布式存储系统。它利用 HDFS 为其提供高可靠的底层存储支持，利用 MapReduce 为其提供高性能的计算能力，能够快速的定位并访问存储于 HDFS 上数十亿行的数据，同时还可利用 Pig \cite{pig} 或 Hive \cite{hive} 为其提供高层语言支持。
+
+%如由斯坦福大学化学系的Pande小组在2000年启动的，一个关于研究蛋白质折叠、误折、聚合及由此引起的相关疾病的分析计算工程 Folding@home \cite{folding}，一台普通计算机一天只能模拟 1 纳秒的蛋白质折叠过程，但一个蛋白质折叠过程是以数十毫秒(10000 纳秒)作为时间单位的。如此庞大的计算量单由一台普通计算机完成，在时间上是难以让人接受的，而使用超级计算机则会在代价上让人无法容忍。
 
 联机分析处理(OLAP) \cite{chaudhuri1997overview} 是一种从多维度分析数据的商业智能分析技术，能方便的进行大规模数据分析及统计计算，多用于决策支持系统和数据仓库。例如企业可从用户维度，产品维度以及订单维度来分析对于不同年龄阶层最受欢迎的产品类型，从而可推出针对不同年龄的产品销售计划。由于企业数据的快速累积增长以及企业对分析历史数据、挖掘商业价值的热情逐渐增高，联机分析处理应用在业界变得越来越受欢迎，开发更高效的 OLAP 技术浪潮应运而生。全球最大的商业社交网站 LinkedIn 的网页分析工具 Avatara \cite{wu2012avatara} 正是基于 OLAP 技术开发的。关系型联机分析处理 (ROLAP) \cite{pedersen2001multidimensional}是 OLAP 其中一种较为流行的实现技术，它针对存储于关系型数据库(RDMS)中的数据进行动态的多维分析。相对于同样是较为流行的 OLAP 实现技术，还有多维联机分析处理(MOLAP)。ROLAP 由于能够直接访问存储于 RDMS 中的数据，所以不需要对分析数据进行预处理计算和额外存储，且 ROLAP 还能基于 RDMS 执行 SQL 查询来满足用户请求，所以基于这几点，ROLAP 相对于 MOLAP 能够支持更多的用户群组及数据量。如全球最大的独立 BI 公司 MicroStrategy，其推出的 OLAP 工具 \cite{msolapservice} 正是以 ROLAP 技术作为其主要的分析架构。
 
@@ -16,12 +18,12 @@
 
 数据立方是 OLAP 领域内一项关键技术，数据立方的高效计算可大幅度提高 OLAP 对查询的相应时间。业界一直在从多个角度探讨基于数据立方技术的优化 \cite{xin2003star} \cite{harinarayan1996implementing} \cite{zhao1997array} \cite{han2001efficient} \cite{wang2002condensed}。随着数据的急剧增加，探讨如何在分布式计算框架下高效的完成数据立方的计算成为势在必行的一个趋势 \cite{abello2011building} \cite{wang2010mapreducemerge} \cite{sergey2009applying} \cite{lee2012efficient} \cite{wang2013scalable}。
 
-Raghu Ramakrishnan 团队提出的 MapReduce DataCube 方案，以下简称 MR-CUBE， \cite{nandi2012data} \cite{nandi2011distributed}，虽然实现了数据立方与 MapReduce 的高效结合，但其仍存在缺陷，尤其是在特别倾斜的数据集下，其对数据划分的方法很可能退化失效。同时它对维度的划分只给出了一些建议遵循的规则，并没有给出具体的简单有效的划分方法。此外，MR-CUBE 使用了一种基于 BUC \cite{beyer1999bottom} 的算法计算 MapReduce 下的数据立方。而基于 ROLAP 的数据立方实现技术除了 BUC 外，还有 PipeSort，PipeHash \cite{agarwal1996computation} 等。 如 Suan Lee 等人提出了基于 PipeSort 的 MapReduce Cube 实现方法 \cite{lee2012efficient} 。这些方法与 BUC 相比，更能利用 MapReduce 框架的一些优势。业界对于整合 Data Cube 与 MapReduce 的技术仍在探讨中，所以可尝试用其他 ROLAP Cube 的实现方法来探讨取代 BUC，从而优化 MR-CUBE、整合其他 ROLAP Cube 技术与 MapReduce。
+Raghu Ramakrishnan 团队提出的 MapReduce DataCube 方案，以下简称 MR-CUBE， \cite{nandi2012data} \cite{nandi2011distributed}，虽然实现了数据立方与 MapReduce 的高效结合，但其仍存在缺陷，尤其是在特别倾斜的数据集下，其对数据划分的方法很可能退化失效。同时它对维度的划分只给出了一些建议遵循的规则，并没有给出具体的简单有效的划分方法。此外，MR-CUBE 使用了一种基于 BUC \cite{beyer1999bottom} 的算法计算 MapReduce 下的数据立方。而基于 ROLAP 的数据立方实现技术除了 BUC 外，还有 PipeSort，PipeHash \cite{agarwal1996computation} 等。 如 Suan Lee 等人提出了基于 PipeSort 的 MapReduce Cube 实现方法 \cite{lee2012efficient} 。这些方法与 BUC 相比，更能利用 MapReduce 框架的一些优势。业界对于整合 Data Cube 与 MapReduce 的技术仍在探讨中，所以可尝试用其他 ROLAP Cube 的实现方法来探讨取代 BUC，从而优化 MR-CUBE、整合其他 ROLAP Cube 技术与 MapReduce。同时对于倾斜数据的均匀划分，可借鉴 \cite{tao2013minimal} 中的思想以及它对 Tera Sort 的使用。
 
 
 
 \section{本文工作}
 
-根据上述内容，文本工作主要是探讨基于 MapReduce 分布式计算框架下，在 ROLAP 基础上数据立方的实现技术。优化现有的基于 MapReduce 的 ROLAP 数据立方实现方案，主要是针对Raghu Ramakrishnan 团队提出的 MapReduce DataCube 方案 \cite{nandi2012data} \cite{nandi2011distributed}，针对其存在的缺陷进行优化。并从其他数据立方技术角度，如 PipeSort、PipeHash 等，探讨代替 BUC 方法实现基于 MapReduce 的数据立方的方案。 从而能为后续的一般化、MapReduce 与关系型数据库技术的整合、分布式的 ROLAP 关键技术的优化实现提供研究经验支持。
+根据上述内容，文本工作主要是探讨基于 MapReduce 分布式计算框架下，在 ROLAP 基础上数据立方的实现技术。优化现有的基于 MapReduce 的 ROLAP 数据立方实现方案，主要是针对Raghu Ramakrishnan 团队提出的 MapReduce DataCube 方案 \cite{nandi2012data} \cite{nandi2011distributed}，针对其存在的缺陷进行优化。包括提出更具有通用性的对倾斜数据的划分方法，例如使用 Tera Sort 的思想对倾斜数据进行划分；从其他数据立方技术角度，如 PipeSort、PipeHash 等，探讨代替 BUC 方法实现基于 MapReduce 的数据立方的方案。并且根据实验结果总结出两种不同类型的度量函数适用的计算方法。 从而能为后续的一般化、MapReduce 与关系型数据库技术的整合、分布式的 ROLAP 关键技术的优化实现提供研究经验支持。
 
 

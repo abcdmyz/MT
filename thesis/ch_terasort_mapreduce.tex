@@ -1,16 +1,117 @@
 \chapter{TeraSort与数据立方的结合}
 
+TeraSort \cite{o2008terabyte} 最初的提出是用于在 MapReduce 中对全局数据的排序。\cite{tao2013minimal} 提出了 TeraSort 最佳的采样比例，并证明了该比例的合理性。该论文同时将 TeraSort 与 GroupBy 结合，提高在倾斜数据集况下 GroupBy 的计算效率。由于 GroupBy 是数据立方的子操作，因此受到这篇论文的启发，考虑将TeraSort与数据立方相结合。
+
 \section{TeraSort}
+
+TeraSort最初用于在 MapReduce 中对全局数据的排序。虽然 MapReduce 输出的最终结果是有序的，但仅是每个 reducer 输出的数据是有序的，而 reducer 之间的数据是无序的。图\ref{tera_sort}为不使用 TeraSort 与使用 TeraSort 的情况下对原数据使用 MapReduce 排序的结果。图中每个矩形内的数据表示 每个 reducer 的输出。对于不使用 TeraSort 的MapReduce，每个 reducer 输出的数据都是有序的，但是reducer 之间的数据是无序的。而对于使用 TeraSort 的 MapReduce，不仅仅是每个 reducer 内的数据是有序的，reducer 之间的数据也是有序的。
+
+\begin{figure}[ht] 
+\centering\includegraphics[width=4.5in]{picture/ch_terasort_mr/tera_sort} 
+\caption{Tera Sort}\label{tera_sort} 
+\end{figure}
+
+TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上的数据的数据范围。也就是规定某一个范围内的数据必须落在指定的 reducer 上，而不是使用 MapReduce 本身的哈希函数将这些数据随机分发到各个 reducer 上。但如何确定这些范围值与 reducer 之间的关系呢，尤其是对原数据的数据特征并没有太多了解的情况下。这里使用采样的方法。
+
+对原数据进行一定比例的采样，这个最佳比例 \cite{tao2013minimal} 已给出证明。接着将采样的数据都发到同q一个 reducer 上。根据 MapReduce 的特性，同一个 reducer 内的数据会被排序。若采样的样本大小为 s，reducer 的数量为 t。那么要从采样序列中选取 t-1 个点作为分界点，这些分界点是限定落入 reducer 中的数据的数据范围。对于第 i 个分界点选取的方法是，选取采样序列中的第 $i\times \left \lceil \frac{s}{t} \right \rceil$ 作为第 i 个分界点。图 \ref{tera_sort_mr1} 为  TeraSort 采样以及选取分界点的过程。图中假设 reducer 数据量为4，因此选取的分界点数量为3，红色的数字表示其被选为分界点。图中选取了3个分界点，分别为25、50、78，这就给出了4个 reducer 接收的数据范围，分别是$\left[- \infty, 25 \right], \left(25, 50 \right], \left(50, 78 \right], \left(78, +\infty \right]$。
+
+\begin{figure}[!htb] 
+\centering\includegraphics[width=6in]{picture/ch_terasort_mr/tera_sort_mr1} 
+\caption{Tera Sort 采样与选取分界点}\label{tera_sort_mr1} 
+\end{figure}
+
+以上是第一轮 MapReduce，主要工作是采样以及选取分界点。这些分界点的作用是规定数据必须根据不同的范围落入既定的 reducer 上。在第二轮的 MapReduce 中，对于 Mapper 输出的每一条键值对，根据 key 的值，可使用二分查找等方法（Hadoop中使用Trie树）确定每一条键值对需要分发到的 reducer。最终 MapReduce 的结果就能全局有序。因此这里需要两轮 MapReduce。
 
 \section{TeraSort与GroupBy}
 
+\cite{tao2013minimal} 中将 TeraSort 与 GroupBy结合，能很好地解决倾斜数据集中由于各个 reducer 接收到的要计算的数据量差别过大，导致部分 reducer 运行时间过长的情况。
+
+首先阐述使用 MapReduce 计算 GroupBy 的一般方法（称为Base GroupBy）。其实这个方法与 使用 MapReduce 计算数据立方的 Naive 方法类似。在 数据立方中，mapper的输出是每一条记录与所有 region 的映射。而在 GroupBy 中，仅需要与一个 region，即 GroupBy 的 region 映射即可。例如记录 e1=[a0, b0, c0, d0, m0]，其中a0, b0, c0, d0对应的是维属性，m0 对应的是度量属性。当前操作是 GroupBy(B)，那么对于这条记录输出的 key 为 b0，value 为 m0。具有相同的 key 值的数据会被分发到同一个 reducer 上计算，也就是具有相同 group\_value 的数据会被分发到同一个 reducer 上计算。如果数据集是倾斜的，也就是这个 region 内有一些特别大的 group，这将导致有一些 reducer 分发到大量的数据，而一些 reducer 分发到较少量的数据，导致最终计算效率的下降。
+
+将 TeraSort 与 GroupBy结合，目的是将 region 内较大的 group 进行划分，从而将一个 group 分发到多个 reducer 上进行计算。而 TeraSort 的采样以及分界点的选择恰好能对大的 group 进行划分在。论文中以度量函数 SUM 作为例子，采样的数据是维属性与记录编号组成的组合键。也就是采样的key是[group\_value, tuple\_id]这样的组合键。之后的操作与 TeraSort 类似，将采样的数据发到一个 reducer 上，采样的数据会被排序，然后根据 reducer 的数量选取分界点。由于这里的key是复合键，因此在 group\_value 相同的情况下会比较 tuple\_id。也正因为这个tuple\_id，较大的 group 才能被划分。
+
+图 \ref{base_groupby} 是使用 TeraSort 方法对采样的数据进行划分的示例。图中每个矩阵表示一个 group，矩阵越大，表示采样数据中具有相同 group\_value 的样本越多。红色的线表示分界点。分界点之间的间距是基本相同的，因此对于较大的 group 很有可能从中选取一个或多个分界点，正好将 group 进行了划分。若采样的key中只有 group\_value，而没有 tuple\_id，那么对于一个大 group，就算从中选择了多个分界点，但分界点的值都是相同的，这样的分界点就没有意义了。
+
+图中每个分块都标有数字，各个分界点之间的分块会分派到同一个 reducer 上计算，但由于 group\_value 的不同，即使这些分块分到同一个 reducer 上，也会多次调用 reduce 函数。只有同一个 reducer 中具有相同 group\_value 的数据才会放在同一个 reduce 函数中进行计算。
+
+\begin{figure}[!ht] 
+\centering\includegraphics[width=4in]{picture/ch_terasort_mr/ts_groupby} 
+\caption{使用TeraSort划分GroupBy的计算}\label{ts_groupby} 
+\end{figure}
+
+以上的采样以及选取分界点是第一轮的 MapReduce。第二轮的 MapReduce 与上面提到的计算 GroupBy 的一般方法类似，只是 key 的输出不仅仅是 group\_value，还需要tuple\_id。这样才能通过与分界点的比较确定数据要分发到某个确定的 reducer 上。使用 TeraSort 计算 GroupBy 还需要第三轮的 MapReduce，因为在上一轮的计算中，大的 group 被划分了，因此第三轮的 MapReduce 是对被划分的 group 进行合并。
+
 \section{TeraSort与数据立方}
 
-\subsection{数据划分}
+由于 GroupBy 是数据立方的一个子操作，受到 TeraSort 与 GroupBy 结合的启发，自然地引申到了 TeraSort 与数据立方的结合，并且发现这样的结合能解决上一章中提到的 MR-Cube 存在的一些问题。为了方便，以下将 TeraSort 与数据立方结合的方法称为 TS-Cube。
+
+\subsection{数据采样与划分}
+
+无论是 MR-Cube 还是 TS-Cube 都要解决一个问题，那就是大 group 的划分问题。在 MR-Cube 中是通过采样，然后根据采样数据中 group 的大小确定 region 是否为 reducer-unfriendly region。对于 reducer-unfriendly 的region，region 内的 group 都需要进行划分。MR-Cube 使用对某个属性值求余的方法对数据进行划分。对于 TS-Cube，运用 TeraSort 的思想，则同样需要采样，然后对采样数据排序，选取分界点。在 GroupBy 的场景下，采样的 key 是 [group\_value, tuple\_id] 这样的复合键，在数据立方的计算中，由于计算的不仅仅是一个 region，因此采样的 key 更为复杂。并且\cite{tao2013minimal} 中讨论的度量函数仅是 SUM，而这里还需要考虑到整体性度量函数。
+
+首先考虑采样的 key 值。采样的 key 值关系到分界点的选取以及第二轮 MapReduce 计算时 reducer 中数据的均匀性。因为数据立方的计算涉及到多个 region，因此复合键中要加入与 region 有关的信息，这里选择加入 region\_id。将各个 region 按照字符串顺序排序，然后对它们编号，即可得到 region\_id。这样使用[region\_id, group\_value] 复合键即可表示一个指定 region 内指定的 group。但仅用这两个值对于大的group是无法划分的。因为若两个分界点落在同一个region的同一个group内，这两个分界点的值也是相同的，因此这里需要加入更多的信息。
+
+在第二章准备知识中一共提到三种度量函数，这里可将这三种度量函数分为两类，一类是非整体性度量，另一类是整体性度量。以下分别阐述这两种不同的度量在采样时 key 值的构成。
+
+对于非整体性度量，由于数据划分不受限制，因此数据不需要按照某个特定的属性进行划分。所以这里可以与选择 tuple\_id 作为 key 值的一部分。并且 tuple\_id 一般是数据的主键，主键是无重复的。这种情况下，一个 group 内若有多个分界点，分界点的值也是不同的。因此，对于非整体性度量函数，采样时的key为 [region\_id, group\_value, tuple\_id]。
+
+而对于整体性度量，随意的数据划分对它的计算很可能是无任何帮助的。在这里，可使用 \cite{nandi2011distributed} 提出的部分线性度量(Partially Algebraic Measure)。也就是根据不同的整体性度量函数按照某个特定的属性值进行划分，而这个属性值在多数情况下都是度量属性值。因此，对于整体性度量函数，采样时的key为 [region\_id, group\_value, measure\_value]。这种情况下，即使一个 group 内有多个分界点，因为度量值的不同，分界点的值也不同。
+
+同时，这样的划分对于计算也是有一定帮助的。例如 COUNT(DISTINCT(uid))，uid 为度量值，那么采样的key为 [region\_id, group\_value, uid]。因此相同的 uid 必定会划分到同一个分块内，因此对于每个分块仍然可以计算 COUNT(DISTINCT(uid))，然后对每个分块的结果做累加即可。图\ref{tscube_picture} 为 TS-Cube 的采样与分界点的选取。每一个矩阵表示一个 group，相同颜色的矩阵表示同一个 region 内的 group。红色的直线表示分界点。
+
+\begin{figure}[!htb] 
+\centering\includegraphics[width=6in]{picture/ch_terasort_mr/tscube_picture} 
+\caption{TS-Cube的采样与分界点的选取}\label{tscube_picture} 
+\end{figure}
+
+根据以上的方法所选取的分界点即规定了每个 reducer 所要处理的数据范围。group 越大，采样中所占的比例也越大，那么分界点越容易落在其上。因此能达到大group被划分的目的。而对于分界点数量，若有 t 个reducer，则至少要选取 t-1 个分界点。但其实可以选择更多分界点，只要保持是 (t-1) 的倍数关系即可。但这个倍数到底如何选择，目前仍未有一个较好的结论。
+
+\subsection{数据立方的计算}
+
+以上的采样与分界点的选取是第一轮的 MapReduce，也即是对数据的划分。第二轮进行的 MapReduce 是对数据立方的计算。这里先不考虑将多个 group 的数据放在同一个 reduce 函数里计算的情况（即MR-Cube 中提出的 Batch Area），仍采用 Naive 的方法，映射所有的region。TS-Cube 与 Batch Area 的结合将在下一节中阐述。
+
+根据使用 TeraSort 对数据进行全局排序以及计算 GroupBy 可看出来，第二轮的 MapReduce 中 mapper 输出的 key 一般与采样的 mapper 所输出的 key 是一致的。因为第一轮 mapper 输出的key中的若干个会被选为分界点，第二轮mapper的输出必须与第一轮保持一致，才可以与分界点进行比较，从而决定键值对落到哪个 reducer 上。决定键值对被分派到哪个 reducer 是在 MapReduce 的 partition 阶段。因此 mapper 输出的 key 与分界点的比较也正是在 partition 阶段。
+
+而在 reduce 阶段，同一个 reducer 内的数据，若具有相同 region\_id 和 group\_value 则会在同一个 reduce 函数内进行计算。此处 reducer 的计算与 Naive 是一样的，因此不再详细说明。
+
+
+这里需要为 MapReduce 的机制进行一些说明。在默认的 MapReduce 中，只有相同的 key 值的数据才会放在同一个 reduce 函数中计算。而在 TS-Cube 第二轮 MapReduce 中 mapper 输出的 key 值为 [region\_id, group\_value, tuple\_id or measure\_id]，是一个复合键。按照默认规定，必须这3个值都相同才能放在同一个 reduce 函数内计算。但其实MapReduce的框架为此提供了灵活的变化。用户可重载 GroupPartitioner 函数，此函数是定义在同一个 reducer 内，具有什么特征的数据会被放在同一个 reduce 函数中计算。由于TS-Cube 的特殊性，这里需要重载 GroupPartioner，规定只要 region\_id 和 group\_value 相同的数据即可放在同一个 reduce 函数内计算。
+
+最后进行第三轮的 MapReduce，将被划分的数据进行合并。
+
+
+\subsection{实现伪代码}
 
 
 
 
-\section{PipeSort}
+使用 TeraSort 这样的采样与数据的划分方式正好可以解决 MR-Cube 中 group 的划分问题。在 MR-Cube 中，只要一个 region 内有一个大 group，那么这个 region 内所有的 group 都要被划分。而在 TS-Cube内，分界点一般只会落在较大的 group 上，即使不落在较大的 group 上，也只会落在两个小的 group 之间。因为 group 越小，采样中出现的数量也越少，那么分界点落在这个小 group 上的概率也就非常小了。只有分界点落到的 group 才会被划分，这样 TS-Cube 一般只会划分大的 group。因此 TS-Cube 就可以避免了 MR-Cube 中出现的不必要的划分。
 
-\section{TeraSort-Cube 与 MR-Cube的比较}
+在 MR-Cube 中使用求余的方式对数据进行划分，在一些极端情况下，可能数据会有倾斜性，导致划分后的数据依然有倾斜性。例如使用 MR-Cube 的方法计算的划分因子的结果是2，也就是令某个属性值对2求余从而达到数据划分的效果，而需要划分的属性值若大部分都是奇数，这样将导致数据划分的失效。而使用 TS-Cube 的方法则可以避免这种情况。即使所有的度量属性值都是奇数，TS-Cube 依然可以较为均匀地划分数据。因为 TS-Cube 对数据的划分是基于数据出现的频率，数据出现频率越高，越容易被划分，也正好达到了大数据需要划分的目的。
+
+
+\section{TS-Cube 与 Pipesort}
+
+
+
+\subsection{PipeSort}
+
+
+
+\subsection{TS-Cube 与 PipeSort 的结合}
+
+
+\subsection{实现伪代码}
+
+
+
+\section{TSP-Cube 与 MR-Cube的比较}
+
+
+
+
+
+
+
+
+

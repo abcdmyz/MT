@@ -152,18 +152,45 @@ Country & State & City & Topic & Category & Subcategory \\
 
 \subsection{TS-Cube 与 PipeSort 的结合}
 
-最后将 TS-Cube 与 pipesort 结合，从这两个方面一同提高计算数据立方的效率。TS-Cube 可对大的group 进行划分，pipesort可减少中间数据，并且将多个 group 放在同一个 reduce函数中计算。由于 pipesort 的使用，无论是采样还是数据立方的计算，mapper 的输出不再是映射所有的 region，而仅需要映射这个pipeline 中的一个 region 即可。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分别分析采样与数据立方计算时 mapper 的输出。
+最后将 TS-Cube 与 pipesort 结合，从这两个方面一同提高数据立方的计算效率。TS-Cube 可对大的group 进行划分，pipesort 可减少中间数据的产生，并且将多个 group 放在同一个 reduce 函数中计算。由于 pipesort 的使用，无论是采样还是数据立方的计算，mapper 的输出不再是映射所有的 region，而仅需要映射这个pipeline 中的一个 region 即可。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分别分析采样与数据立方计算时 mapper 的输出。
 
-在TS-Cube 的第一轮 MapReduce中，mapper 输出的样本key应为[region\_id, group\_value, tuple\_id or measure\_value]。这里对应上述的pipeline 和记录，mapper 输出的key应为 [Region(A)\_id, a0, tuple\_id or measure\_value]。
+在TS-Cube 的第一轮 MapReduce中，mapper 输出的样本的 key值应为[region\_id, group\_value, tuple\_id or measure\_value]。这里对应上述的pipeline 和记录，mapper 输出的key应为 [Region(A)\_id, a0, tuple\_id or measure\_value]。
 
-在TS-Cube 的第二轮 MapReduce 中，mapper 输出的key应与第一轮是一致的，因此mapper 输出的key为[Region(A)\_id, a0, tuple\_id or measure\_value]，输出的value则为[b0, c0, d0] 这样的组合键。在上面的章节中提到，MapReduce的机制较为灵活，可重载 GroupComparator 函数，令只要有相同 region\_id 和 group\_value 的数据都放在同一个 reduce 函数中。因此在同一个 reducer 中，对于属性 A 具有相同值的数据都会放在同一个 reduce 函数里。
+在TS-Cube 的第二轮 MapReduce 中，mapper 输出的key应与第一轮是一致的，因此mapper 输出的key为[Region(A)\_id, a0, tuple\_id or measure\_value]，输出的value则为[b0, c0, d0] 这样的组合键。在上面的章节中提到，MapReduce的机制较为灵活，可重载 GroupComparator 函数，令只要有相同 region\_id 和 group\_value 的数据都放在同一个 reduce 函数中。因此在同一个 reducer 中，对于属性 A 具有相同值的数据都会放在同一个 reduce 函数里，即使它们的 tuple\_id 或 measure\_value 不同。
+
+由于 pipesort 的使用，mapper 的输出不再是映射所有的 region，而仅需要映射 pipeline 中的一个 region 即可，而在这里 mapper 的key值选择了 region(A) 作为映射，而将剩余属性的值放在了value中。若在单机上使用 pipeline 计算数据立方，只要将数据按照 ABCD 这样的属性顺序排序，然后对数据扫描一遍即可计算 GroupBy(ABCD)，GroupBy(ABC)，GroupBy(AB)，GroupBy(A)的值。但是在分布式中，需要对数据进行划分，而我们希望数据的划分能在满足 pipeline 计算的同时每个分块尽可能地小。这样可减轻 reducer 在shuffle 和 sort 阶段的负担，提高计算效率。为了满足 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个 pipeline 的计算，具有相同属性 A 的值的数据必定要放在同一个分块内（除非由于这个 group 过大，被分界点划分了）。那么数据则根据属性A的值被分成若干个分块，每个分块上都可进行 pipeline 的计算，并且互相是不影响的，从而实现了多个pipeline的并行计算。
 
 对于任何一条 pipeline，起始的region 一定是属性数量最多的，末尾的reigon一定是属性数量最少的。对于每条记录，都要与每个pipeline做映射。在数据立方的计算中，mapper 输出的 key值为 末尾region对应的属性值与tuple\_id 或 measure\_id的组合，mapper 输出的value 值为起始region中的属性除去 末尾region的属性后对应的属性值。如图\ref{dataset_table} 对应的数据集，生成的pipesort方案如图\ref{sorted_region}所示共有4个pipeline，因此每条记录都要映射4个键值对。
 
-
 \subsection{实现伪代码}
 
+{\renewcommand\baselinestretch{1} 
 
+\begin{algorithm}
+\caption{Naive Algorithm}
+
+{%\fontfamily{ptm}\selectfont
+
+	\begin{algorithmic}[1] %每行显示行号
+    \Function {MAP}{e}
+    	\State e is a tuple in the dataset
+        \ForAll {Region R in C}
+        	\State k=R(e)
+        	\State EMIT(k, e)
+        \EndFor
+   	 \EndFunction
+     \State
+     \Function {REDUCE}{k,{e1,e2,...}}
+     	\State let M be measure function
+        \State EMIT(k, M({e1,e2,...}))
+     \EndFunction
+	\end{algorithmic}
+
+}
+
+\end{algorithm}
+
+\par}
 
 \section{TSP-Cube 与 MR-Cube的比较}
 

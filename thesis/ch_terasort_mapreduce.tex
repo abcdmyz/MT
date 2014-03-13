@@ -165,32 +165,30 @@ Country & State & City & Topic & Category & Subcategory \\
 \subsection{实现伪代码}
 
 {\renewcommand\baselinestretch{1} 
-
 \begin{algorithm}
-\caption{Naive Algorithm}
-
-{%\fontfamily{ptm}\selectfont
+\caption{TSP-Cube Algorithm}
+\label{tscube_mr1}
+{\fontfamily{\familydefault}\selectfont
 
 	\begin{algorithmic}[1] %每行显示行号
     \Function {MAP}{e}
     	\State e is a tuple in the dataset
-        \ForAll {Region R in C}
+        \For {Last Region R in each Pipeline}
         	\State k=R(e)
-        	\State EMIT(k, e)
+        	\State EMIT(k, )
         \EndFor
    	 \EndFunction
      \State
-     \Function {REDUCE}{k,{e1,e2,...}}
+     \Function {REDUCE}{k,$\left\{ e1,e2,...\right\}$}
      	\State let M be measure function
-        \State EMIT(k, M({e1,e2,...}))
+        \State EMIT(k, M($\left\{ e1,e2,...\right\}$))
      \EndFunction
 	\end{algorithmic}
-
 }
-
 \end{algorithm}
-
 \par}
+
+算法 \ref{naive_algorithm}
 
 \section{TSP-Cube 与 MR-Cube的比较}
 

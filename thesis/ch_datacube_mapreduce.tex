@@ -25,12 +25,31 @@
 
 使用 MapReduce 计算 Data Cube，可以使用多次 MapReduce 计算各个 GroupBy，然后再将结果合并。但若计算资源较为充足的情况下，可使用一次 MapReduce 计算所有的 GroupBy，令计算资源被充分地使用。
 
-图 \ref{naive_cube} 为 Naive 算法的实现。例如上述的数据集共有16个 region，那么对于输入的每一条记录，将其映射成对应的所有 group，并且与度量属性的值组成 key-value 作为 map 的输出。相同 key 值的数据将分派到同一个 reduce 上，也即相同 group 值的数据被分派到同一个 reduce 上，再进行聚合计算。例如输入的一条记录为 (e1, 091203, u1, USA, New Youk, NYC, Shopping, Phone, Smart)，度量函数为 COUNT(DISTINCT(uid))。那么对于每一条记录，map 都输出 16 个 ([group value], [uid]) 的key-value，分别为([*,*], [u1]), ([*,Smart],[u1]), ([USA, *], [u1])等等。
+算法 \ref{naive_algorithm} 为 数据立方计算的 Naive 实现。例如上述的数据集共有16个 region，那么对于输入的每一条记录，将其映射成对应的所有 group，并且与度量属性的值组成 key-value 作为 map 的输出。相同 key 值的数据将分派到同一个 reduce 上，也即相同 group 值的数据被分派到同一个 reduce 上，再进行聚合计算。例如输入的一条记录为 (e1, 091203, u1, USA, New Youk, NYC, Shopping, Phone, Smart)，度量函数为 COUNT(DISTINCT(uid))。那么对于每一条记录，map 都输出 16 个 ([group value], [uid]) 的key-value，分别为([*,*], [u1]), ([*,Smart],[u1]), ([USA, *], [u1])等等。
 
-\begin{figure}[!htb]
-\centering\includegraphics[width=3in]{picture/ch_datacube_mr/naive_cube} 
-\caption{Naive 算法计算 Data Cube}\label{naive_cube} 
-\end{figure} 
+{\renewcommand\baselinestretch{1} 
+\begin{algorithm}[!ht]
+\caption{Naive Algorithm}
+\label{naive_algorithm}
+{\fontfamily{\familydefault}\selectfont
+
+	\begin{algorithmic}[1] %每行显示行号
+    \Function {MAP}{e}
+    	\State e is a tuple in the dataset
+        \ForAll {Region R in C}
+        	\State k=R(e)
+        	\State EMIT(k, e)
+        \EndFor
+   	 \EndFunction
+     \State
+     \Function {REDUCE}{k,$\left\{ e1,e2,...\right\}$}
+     	\State let M be measure function
+        \State EMIT(k, M($\left\{ e1,e2,...\right\}$))
+     \EndFunction
+	\end{algorithmic}
+}
+\end{algorithm}
+\par}
 
 Naive的方法实现起来非常简单，对于较小的数据集也有很好的效果，但是随着数据集规模的增大，Naive的方法也存在不足，主要包括以下两个方面。
 

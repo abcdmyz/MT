@@ -12,13 +12,11 @@ GBLP \cite{gray1997data}、PipeSort、PipeHash \cite{agarwal1996computation}、B
 \caption{4维数据立方的Lattice}\label{4_dimension_lattice} 
 \end{figure} 
 
-\begin{itemize}
-
-\item \textbf{GBLP}
+\subsection{GBLP}
 
 Jim Gary 等人在提出数据立方概念的同时，还提出了一种计算数据立方的算法 —— GBLP[12]。该算法的核心思想是自顶向下，为每个小方选择其最小的父小方(指小方内group数量最少)作为其计算的基础。对于一个立方 lattice，越往下，小方内group的数量就会变得越少，因此相对于每个小方都基于原始数据表进行计算，基于最小父小方的计算，因为数据量的大规模减少而加快了一个小方的计算速度。但该方法只是把一个 lattice 修剪成一个树型结构，却没有提供一个特定的 lattice 树遍历计划。另外当计算数据量很大无法完全存储于内存时，该方法没有提供一个有效的磁盘访问策略而使得 I/O 代价会很高。
 
-\item \textbf{PipeSort}
+\subsection{PipeSort}
 
 1996 年，Agrarwal 等人针对 GBLP 算法的缺陷，提出了第一个改进的数据立方计算方法 —— PipeSort\cite{agarwal1996computation} 。在一个数据立方 lattice 中，假如一个子小方的维属性排序顺序是它其中一个父小方的维属性排序顺序的前缀，则该子小方可以在其父小方的基础上计算而无需额外的排序。如前面提到的图\ref{4_dimension_lattice} 所示的数据立方，假设每个小方的维属性排序顺序就是图示的小方名字从左到右的维顺序，例如对于小方 ABC，首先按照维属性 A 排序，若 A 相同的情况下再按照 B 排序，以此类推。小方 AB 的维顺序是小方 ABC 的前缀，但小方 AC 不是小方 ABC 的前缀。在这样的情况下，AB 可从 ABC 计算获得，ABC 可从 ABCD 计算获得，于是形成了流水线 ABCD-\textgreater ABC-\textgreater AB-\textgreater A。因此对原数据和一些小方进行多次排序，即可生成多条流水线。
 
@@ -37,11 +35,11 @@ PipeSort 在 GBLP 的基础上，通过采样估算每个小方的大小，通�
 \caption{4维数据立方 pipesort 计算过程}\label{pipesort} 
 \end{figure} 
 
-\item \textbf{PipeHash}
+\subsection{PipeHash}
 
 Agrarwal 等人还提出了 PipeHash[19]算法，该算法是 PipeSot 算法的一个变形，基于 Hash(散列)实现的。PipeHash 算法首先会根据 GBLP 算法的思想将一个立方 lattice 修剪成一棵 lattice 执行树。为了使得在同一个聚集计算里的所有元组能够在内存上相邻的位置，PipeHash 会为每一个同时计算的小方维护一个 Hash 表。假如有些小方的散列表不能同时存放在内存里，则 PipeHash 算法就会把一个 lattice 执行树划分成多棵子树，使得每棵子树内所有小方的 Hash表都能够同时存储于内存中。 由于划分代价要比排序代价要小，所以PipeHash 的性能要比 PipeSort 要高。但 PipeSort 用一个排序可以计算多个聚集结果，而 PipeHash 则每次都需要对数据进行重新 Hash，且 PipeHash 相对于PipeSort 需要大量的内存来存储每棵子树内所有小方的 Hash 表。
 
-\item \textbf{Partitioned-Cube}
+\subsection{Partitioned-Cube}
 
 以上提到的几种算法都没有考虑到数据稀疏的情况，在现实应用中，事实表往往是稀疏的。针对基于稀疏基表的数据立方的有效计算 ，Ross 等人在1997 年提出了 Partitioned-Cube 算法 \cite{ross1997fast}。该算法采用分治的策略，对不能完全存储于内存的数据集根据某个候选聚集维属性进行划分，划分成多个子集，因为数据是稀疏的，所以每个子集均能在内存中计算，于是通过此次划分能够计算所有和该维属性相关的小方结果。完成计算后，将该划分维从候选聚集维中去除，根据上述方法重复计算基于剩余维属性的小方结果直至立方计算完毕。相对于前几种算法，这种算法在数据稀疏的情况下具有更小的 I/O 代价，且受维度增加的性能影响较少。图\ref{partitioned_cube} 为 4 维数据使用 Partitioned Cube计算的过程。
 
@@ -50,7 +48,7 @@ Agrarwal 等人还提出了 PipeHash[19]算法，该算法是 PipeSot 算法的�
 \caption{Partitioned Cube 的计算过程}\label{partitioned_cube} 
 \end{figure} 
 
-\item \textbf{BUC}
+\subsection{BUC}
 
 相对于上述几种自顶向下的立方计算算法，Beyer 等人在 1999 年提出的 BUC （Bottom Up Cube) 则是一种自底向上的算法。BUC 算法是在 Partitioned-Cube 算法的思想上，针对冰山数据立方，即基于某个最少阈值的 GROUP BY 计算而提出的，也即具有 HAVING 条件的 GROUP BY。例如 HAVING COUNT(*) > 100 这样的条件限制。大部分的度量函数是具有单调性的，例如 COUNT()，若 GROUPBY(A=a0) 的结果是小于 100，那么 GROUPBY(A=a0， B=b0) 的结果必然是小于 100。正是这种单调性，加上有阈值限制，将数据立方的计算变成从底向上，可以实现一定的剪枝。例如上述的例子 COUNT(*) > 100，如果 GROUPBY(A=a0)是小于 100 的，那么与 A=a0 相关的 group 就不需要计算了。
 
@@ -67,7 +65,6 @@ BUC算法会根据聚集维属性对基表数据进行多次分组并计算聚�
 \caption{BUC 的执行过程}\label{BUC_execution} 
 \end{figure} 
 
-\end{itemize}
 
 \section{部分数据立方的计算研究}
 

@@ -41,6 +41,10 @@ TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上�
 
 以上的采样以及选取分界点是第一轮的 MapReduce。第二轮的 MapReduce 与上面提到的计算 GroupBy 的一般方法类似，只是 key 的输出不仅仅是 group\_value，还需要tuple\_id。这样才能通过与分界点的比较确定数据要分发到某个确定的 reducer 上。使用 TeraSort 计算 GroupBy 还需要第三轮的 MapReduce，因为在上一轮的计算中，大的 group 被划分了，因此第三轮的 MapReduce 是对被划分的 group 进行合并。
 
+以上 是 \cite{tao2013minimal} 中提到的将 TeraSort 与 GroupBy 结合的方法，但论文中忽略了一个非常重要的关键点，那就是 MapReduce 的 combiner。combiner 是 MapReduce 一个重要的机制，它等同于本地的 reducer。它会对 mapper 的输出进行一次本地的 reduce 计算，然后再将数据发到相应的 reducer 上，这样可以减少网络传输的数据量和reducer 的计算量。正因为这个 combiner 的作用，对于一些非整体性的度量函数，combiner 可以在本地对同一个 group 内的数据进行一次计算，将一个 mapper 上一个 group 内的数据压缩成一条记录发送到 reducer 上，而不是将这个 group 内的数据直接发送到 reducer上，这样每个 reducer 获得的数据量比不使用 combiner 获得的数据量要少得多。
+
+倘若不使用 combiner，TeraSort 和 GroupBy 的结合是非常有用的。但是若使用了 combiner，即使是使用 Naive 的方法计算 GroupBy，对于非整体性度量函数，也基本不存在 reducer 上数据不均匀的情况， 这种情况下，TeraSort 就没有使用的必要了。但这并不是完全否定 TeraSort 对 GroupBy 的作用，因为对于整体性度量函数，它对数据的划分依然有非常大的借鉴作用。在实验章节中，将会分别比较整体性度量与非整体性度量的函数在不同算法下的效率与各个reducer上数据的分布，从而分析出 TeraSort 合适使用的场景。
+
 \section{TeraSort与数据立方}
 
 由于 GroupBy 是数据立方的一个子操作，受到 TeraSort 与 GroupBy 结合的启发，自然地引申到了 TeraSort 与数据立方的结合，并且发现这样的结合能解决上一章中提到的 MR-Cube 存在的一些问题。为了方便，以下将 TeraSort 与数据立方结合的方法称为 TS-Cube。
@@ -64,7 +68,12 @@ TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上�
 \caption{TS-Cube的采样与分界点的选取}\label{tscube_picture} 
 \end{figure}
 
-根据以上的方法所选取的分界点即规定了每个 reducer 所要处理的数据范围。group 越大，采样中所占的比例也越大，那么分界点越容易落在其上。因此能达到大group被划分的目的。而对于分界点数量，若有 t 个reducer，则至少要选取 t-1 个分界点。但其实可以选择更多分界点，只要保持是 (t-1) 的倍数关系即可。但这个倍数到底如何选择，目前仍未有一个较好的结论。
+根据以上的方法所选取的分界点即规定了每个 reducer 所要处理的数据范围。group 越大，采样中所占的比例也越大，那么分界点越容易落在其上。因此能达到大group被划分的目的。而对于分界点数量，若有 t 个reducer，则至少要选取 t-1 个分界点。但其实可以选择更多分界点，只要保持是 (t-1) 的倍数关系即可。但这个倍数到底如何选择，目前仍未得出准确计算的方法，但可参考 MR-Cube 的划分因子 \cite{nandi2011distributed} 使用以下的方法进行估算。
+
+假设数据集中记录总数为 TotalSize，样本的记录总数为 SampleSize，样本中最大的group所包含的记录数为 S，由这三个值估算出，数据集中最大的group所包含的记录为 $T = \frac{S\times TotalSize}{SampleSize}$。若有 t 个reducer，选取 t-1 个分界点，落在最大的 group 上的分界点的数量为 B。对最大的 group 划分，可根据 reducer limit 估算划分因子，为 $PartitionFactor = \frac{T}{ReducerLimit}$。最终要划分的数量为 $\left( \frac {PartitionFactor}{B} - 1 \right) \times ReducerNumber$。
+
+对以上方法最直观的理解是，若使用最少的分界点划分时，最大的group的每个子块却依然超过了reducer limit，则需要对每个子块再进行划分。而再划分的数量通过 reducer limit 与大group 内的记录数估算获得。而 $\frac {PartitionFactor}{B} - 1 $ 是计算大group内每个已划分的子块中还需要添加多少分界点。最后将该值乘以总的 reducer 的数量，即是最后样本所需要的总的分界点数目。
+
 
 使用 TeraSort 这样的采样与数据的划分方式正好可以解决 MR-Cube 中 group 的划分问题。在 MR-Cube 中，只要一个 region 内有一个大 group，那么这个 region 内所有的 group 都要被划分。而在 TS-Cube内，分界点一般只会落在较大的 group 上，即使不落在较大的 group 上，也只会落在两个小的 group 之间。因为 group 越小，采样中出现的数量也越少，那么分界点落在这个小 group 上的概率也就非常小了。只有分界点落到的 group 才会被划分，这样 TS-Cube 一般只会划分大的 group。因此 TS-Cube 就可以避免了 MR-Cube 中出现的不必要的划分。
 
@@ -152,45 +161,110 @@ Country & State & City & Topic & Category & Subcategory \\
 
 \subsection{TS-Cube 与 PipeSort 的结合}
 
-最后将 TS-Cube 与 pipesort 结合，从这两个方面一同提高数据立方的计算效率。TS-Cube 可对大的group 进行划分，pipesort 可减少中间数据的产生，并且将多个 group 放在同一个 reduce 函数中计算。由于 pipesort 的使用，无论是采样还是数据立方的计算，mapper 的输出不再是映射所有的 region，而仅需要映射这个pipeline 中的一个 region 即可。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分别分析采样与数据立方计算时 mapper 的输出。
+最后将 TS-Cube 与 pipesort 结合，从这两个方面一同提高数据立方的计算效率。TS-Cube 可对大的group 进行划分，pipesort 可减少中间数据的产生，并且将多个 group 放在同一个 reduce 函数中计算。由于 pipesort 的使用，无论是采样还是数据立方的计算，mapper 的输出不再是映射所有的 region，而仅需要映射这个pipeline 中的一个 region 即可。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分别分析采样与数据立方计算时 mapper 的输出。以下将Tera Sort 与 PipeSort结合计算数据立方的方法称为 TSP-Cube。
 
-在TS-Cube 的第一轮 MapReduce中，mapper 输出的样本的 key值应为[region\_id, group\_value, tuple\_id or measure\_value]。这里对应上述的pipeline 和记录，mapper 输出的key应为 [Region(A)\_id, a0, tuple\_id or measure\_value]。
+在TSP-Cube 的第一轮 MapReduce中，mapper 输出的样本的 key值应为[region\_id, group\_value, tuple\_id or measure\_value]。这里对应上述的pipeline 和记录，mapper 输出的key应为 [Region(A)\_id, a0, tuple\_id or measure\_value]。
 
-在TS-Cube 的第二轮 MapReduce 中，mapper 输出的key应与第一轮是一致的，因此mapper 输出的key为[Region(A)\_id, a0, tuple\_id or measure\_value]，输出的value则为[b0, c0, d0] 这样的组合键。在上面的章节中提到，MapReduce的机制较为灵活，可重载 GroupComparator 函数，令只要有相同 region\_id 和 group\_value 的数据都放在同一个 reduce 函数中。因此在同一个 reducer 中，对于属性 A 具有相同值的数据都会放在同一个 reduce 函数里，即使它们的 tuple\_id 或 measure\_value 不同。
+在TSP-Cube 的第二轮 MapReduce 中，mapper 输出的key应与第一轮是一致的，因此mapper 输出的key为[Region(A)\_id, a0, tuple\_id or measure\_value]，输出的value则为[b0, c0, d0] 这样的组合键。在上面的章节中提到，MapReduce的机制较为灵活，可重载 GroupComparator 函数，令只要有相同 region\_id 和 group\_value 的数据都放在同一个 reduce 函数中。因此在同一个 reducer 中，对于属性 A 具有相同值的数据都会放在同一个 reduce 函数里，即使它们的 tuple\_id 或 measure\_value 不同。
 
 由于 pipesort 的使用，mapper 的输出不再是映射所有的 region，而仅需要映射 pipeline 中的一个 region 即可，而在这里 mapper 的key值选择了 region(A) 作为映射，而将剩余属性的值放在了value中。若在单机上使用 pipeline 计算数据立方，只要将数据按照 ABCD 这样的属性顺序排序，然后对数据扫描一遍即可计算 GroupBy(ABCD)，GroupBy(ABC)，GroupBy(AB)，GroupBy(A)的值。但是在分布式中，需要对数据进行划分，而我们希望数据的划分能在满足 pipeline 计算的同时每个分块尽可能地小。这样可减轻 reducer 在shuffle 和 sort 阶段的负担，提高计算效率。为了满足 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个 pipeline 的计算，具有相同属性 A 的值的数据必定要放在同一个分块内（除非由于这个 group 过大，被分界点划分了）。那么数据则根据属性A的值被分成若干个分块，每个分块上都可进行 pipeline 的计算，并且互相是不影响的，从而实现了多个pipeline的并行计算。
 
 对于任何一条 pipeline，起始的region 一定是属性数量最多的，末尾的reigon一定是属性数量最少的。对于每条记录，都要与每个pipeline做映射。在数据立方的计算中，mapper 输出的 key值为 末尾region对应的属性值与tuple\_id 或 measure\_id的组合，mapper 输出的value 值为起始region中的属性除去 末尾region的属性后对应的属性值。如图\ref{dataset_table} 对应的数据集，生成的pipesort方案如图\ref{sorted_region}所示共有4个pipeline，因此每条记录都要映射4个键值对。
 
-\subsection{实现伪代码}
+\subsection{TSP-Cube 实现伪代码}
+
+TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1}、\ref{tscube_mr2} 所示。
+
+整体而言，TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Batch Area；同时对它存在的缺点进行了改进。TSP-Cube使用 TeraSort 的思想确定要划分的group，从而改进了 MR-Cube 中由于一个region内有大group，而对region内所有group都进行划分的方法，避免了对小 group 的不必要的划分。同时 TSP-Cube 使用分界点对大group进行划分，与MR-Cube中使用求余的方式相比，数据划分更均匀。并且TSP-Cube 使用PipeSort 替换了了MR-Cube 中的BUC，充分利用了 MapReduce 框架的特性。
 
 {\renewcommand\baselinestretch{1} 
 \begin{algorithm}
-\caption{TSP-Cube Algorithm}
+\caption{TSP-Cube Estimate Algorithm}
 \label{tscube_mr1}
 {\fontfamily{\familydefault}\selectfont
 
 	\begin{algorithmic}[1] %每行显示行号
-    \Function {MAP}{e}
+    \Function {ESTIMATE-MAP}{e}
     	\State e is a tuple in the dataset
-        \For {Last Region R in each Pipeline}
-        	\State k=R(e)
-        	\State EMIT(k, )
+    	\ForAll {Pipeline in PipeSort-Solution}
+    		\State FR=first region of the pipeline
+    		\State LR=last region of the pipeline
+        	\State k=[LR\_RegionID(e),LR\_GroupValue(e),TupleID(e) or MeasureValue(e)]
+        	\State EMIT([k],[arbitrary value])
         \EndFor
    	 \EndFunction
-     \State
-     \Function {REDUCE}{k,$\left\{ e1,e2,...\right\}$}
-     	\State let M be measure function
-        \State EMIT(k, M($\left\{ e1,e2,...\right\}$))
+   	 \State
+     \Function {ESTIMATE-REDUCE}{k1,k2,k3...}
+     	\While {t < SampleSize}
+     		\If {${k}_{t}$ is the $i\times \left \lceil \frac{SampleSize}{BoundaryNum} \right \rceil th$ object }
+     		 \State	
+     		 EMIT([${k}_{t}$],[arbitrary value]) 
+     		 \State i++
+     		\EndIf
+     		\State t++
+     	\EndWhile
      \EndFunction
-	\end{algorithmic}
+	\end{algorithmic}	
 }
 \end{algorithm}
+
+
+
+\begin{algorithm}
+\caption{TSP-Cube Materialize Algorithm}
+\label{tscube_mr2}
+{\fontfamily{\familydefault}\selectfont
+
+	\begin{algorithmic}[1] %每行显示行号
+    \Function {Materialize-MAP}{e}
+    	\State e is a tuple in the dataset
+    	\ForAll {Pipeline in PipeSort-Solution}
+    		\State FR=first region of the pipeline
+    		\State LR=last region of the pipeline
+        	\State k=[LR\_RegionID(e),LR\_GroupValue(e),TupleID(e) or MeasureValue(e)]
+        	\State v=[FR\_GroupValue(e)]
+        	\State EMIT([k],[v])
+        \EndFor
+   	 \EndFunction
+   	 \State
+     \Function {Materialize-REDUCE}{k,[v1,v2,v3...]}
+     	\State Pipeline Calculate 
+     	\ForAll {${v}_{i}$}
+     		\If {${v}_{i} \neq {v}_{i-1}$}
+     			\State
+     			CALCULATE corresponding group and EMIT result
+     		\EndIf
+     	\EndFor
+     \EndFunction
+	\end{algorithmic}	
+}
+\end{algorithm}
+
+
+%\begin{algorithm}
+%\caption{TSP-Cube PostProcess Algorithm}
+%\label{tscube_mr3}
+%{\fontfamily{\familydefault}\selectfont
+
+%	\begin{algorithmic}[1] %每行显示行号
+%    \Function {POSTPROCESS-MAP}{e}
+%    	\ForAll {output record of mr2}
+%        	\State k=[region\_id, group\_value]
+%        	\State v=[measure\_value]
+%        	\State EMIT([k],[v])
+%        \EndFor
+%   	 \EndFunction
+%   	 \State
+%     \Function {POSTPROCESS-REDUCE}{k,[v1,v2,v3...]}
+%     	\State let M be measure function
+%        \State EMIT(k, M($\left\{ e1,e2,...\right\}$))
+%     \EndFunction
+%	\end{algorithmic}	
+%}
+%\end{algorithm}
+
+
 \par}
-
-算法 \ref{naive_algorithm}
-
-\section{TSP-Cube 与 MR-Cube的比较}
 
 
 

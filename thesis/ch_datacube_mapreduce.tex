@@ -38,7 +38,7 @@
     	\State e is a tuple in the dataset
         \ForAll {Region R in C}
         	\State k=R(e)
-        	\State EMIT(k, e)
+        	\State EMIT([k], [e])
         \EndFor
    	 \EndFunction
      \State
@@ -96,7 +96,7 @@ Naive的方法实现起来非常简单，对于较小的数据集也有很好的
 \subsection{Batch Area}
 
 对于中间数据过多的问题，MR-Cube中提出了 Batch Area 的概念。也就是利用 region 之间的父子关系，将多个 group 放在同一个 reducer 中计算，而不是像 Naive 的方法，一个 reduce 只计算一个 group。论文中给出了划分 batch 的一些规则，规则包括以下几点。
-\begin{itemize}
+\begin{itemize}\setlength{\itemsep}{0pt}
 \item reducer-unfriendly 的 region 和 reducer-friendly 的 region 不可划分在同一个batch内。
 \item Reducer-unfriendly region 的划分，同一个 batch 内的 region 需要有相同的划分因子。
 \item 同一个 batch 中的 region 需要有父子关系。

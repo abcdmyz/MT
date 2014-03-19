@@ -1,6 +1,6 @@
 \chapter{TeraSort与数据立方的结合}
 
-TeraSort \cite{o2008terabyte} 最初的提出是用于在 MapReduce 中对全局数据的排序。\cite{tao2013minimal} 提出了 TeraSort 最佳的采样比例，并证明了该比例的合理性。该论文同时将 TeraSort 与 GroupBy 结合，提高在倾斜数据集况下 GroupBy 的计算效率。由于 GroupBy 是数据立方的子操作，因此受到这篇论文的启发，考虑将TeraSort与数据立方相结合。
+TeraSort \cite{o2008terabyte} 最初的提出是用于在 MapReduce 中对全局数据的排序。\cite{tao2013minimal} 提出了 TeraSort 最佳的采样比例，并证明了该比例的合理性。该论文同时将 TeraSort 与 GroupBy 结合，提高在倾斜数据集下 GroupBy 的计算效率。由于 GroupBy 是数据立方的子操作，因此受到这篇论文的启发，考虑将TeraSort与分布式数据立方相结合。
 
 \section{TeraSort}
 
@@ -13,7 +13,7 @@ TeraSort最初用于在 MapReduce 中对全局数据的排序。虽然 MapReduce
 
 TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上的数据的数据范围。也就是规定某一个范围内的数据必须落在指定的 reducer 上，而不是使用 MapReduce 本身的哈希函数将这些数据随机分发到各个 reducer 上。但如何确定这些范围值与 reducer 之间的关系呢，尤其是对原数据的数据特征并没有太多了解的情况下。这里使用采样的方法。
 
-对原数据进行一定比例的采样，这个最佳比例 \cite{tao2013minimal} 已给出证明。接着将采样的数据都发到同q一个 reducer 上。根据 MapReduce 的特性，同一个 reducer 内的数据会被排序。若采样的样本大小为 s，reducer 的数量为 t。那么要从采样序列中选取 t-1 个点作为分界点，这些分界点是限定落入 reducer 中的数据的数据范围。对于第 i 个分界点选取的方法是，选取采样序列中的第 $i\times \left \lceil \frac{s}{t} \right \rceil$ 作为第 i 个分界点。图 \ref{tera_sort_mr1} 为  TeraSort 采样以及选取分界点的过程。图中假设 reducer 数据量为4，因此选取的分界点数量为3，红色的数字表示其被选为分界点。图中选取了3个分界点，分别为25、50、78，这就给出了4个 reducer 接收的数据范围，分别是$\left[- \infty, 25 \right], \left(25, 50 \right], \left(50, 78 \right], \left(78, +\infty \right]$。
+对原数据进行一定比例的采样，这个最佳比例 \cite{tao2013minimal} 已给出证明。接着将采样的数据都发到同一个 reducer 上。根据 MapReduce 的特性，同一个 reducer 内的数据会被排序。若采样的样本大小为 s，reducer 的数量为 t。那么要从采样序列中选取 t-1 个点作为分界点，这些分界点是限定落入各个 reducer 中的数据的数据范围。对于第 i 个分界点选取的方法是，选取采样序列中的第 $i\times \left \lceil \frac{s}{t} \right \rceil$ 个点作为第 i 个分界点。图 \ref{tera_sort_mr1} 为  TeraSort 采样以及选取分界点的过程。图中假设 reducer 数据量为4，因此选取的分界点数量为3，红色的数字表示其被选为分界点。图中选取了3个分界点，分别为25、50、78，这就给出了4个 reducer 接收数据的数据范围，分别是$\left[- \infty, 25 \right], \left(25, 50 \right], \left(50, 78 \right], \left(78, +\infty \right]$。
 
 \begin{figure}[!htb] 
 \centering\includegraphics[width=6in]{picture/ch_terasort_mr/tera_sort_mr1} 
@@ -24,7 +24,7 @@ TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上�
 
 \section{TeraSort与GroupBy}
 
-\cite{tao2013minimal} 中将 TeraSort 与 GroupBy结合，能很好地解决倾斜数据集中由于各个 reducer 接收到的要计算的数据量差别过大，导致部分 reducer 运行时间过长的情况。
+\cite{tao2013minimal} 中将 TeraSort 与 GroupBy结合，为了解决倾斜数据集中由于各个 reducer 接收到的数据量差别过大，导致部分 reducer 运行时间过长的情况。
 
 首先阐述使用 MapReduce 计算 GroupBy 的一般方法（称为Base GroupBy）。其实这个方法与 使用 MapReduce 计算数据立方的 Naive 方法类似。在 数据立方中，mapper的输出是每一条记录与所有 region 的映射。而在 GroupBy 中，仅需要与一个 region，即 GroupBy 的 region 映射即可。例如记录 e1=[a0, b0, c0, d0, m0]，其中a0, b0, c0, d0对应的是维属性，m0 对应的是度量属性。当前操作是 GroupBy(B)，那么对于这条记录输出的 key 为 b0，value 为 m0。具有相同的 key 值的数据会被分发到同一个 reducer 上计算，也就是具有相同 group\_value 的数据会被分发到同一个 reducer 上计算。如果数据集是倾斜的，也就是这个 region 内有一些特别大的 group，这将导致有一些 reducer 分发到大量的数据，而一些 reducer 分发到较少量的数据，导致最终计算效率的下降。
 
@@ -39,11 +39,12 @@ TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上�
 \caption{使用TeraSort划分GroupBy的计算}\label{ts_groupby} 
 \end{figure}
 
-以上的采样以及选取分界点是第一轮的 MapReduce。第二轮的 MapReduce 与上面提到的计算 GroupBy 的一般方法类似，只是 key 的输出不仅仅是 group\_value，还需要tuple\_id。这样才能通过与分界点的比较确定数据要分发到某个确定的 reducer 上。使用 TeraSort 计算 GroupBy 还需要第三轮的 MapReduce，因为在上一轮的计算中，大的 group 被划分了，因此第三轮的 MapReduce 是对被划分的 group 进行合并。
+以上的采样以及选取分界点是第一轮的 MapReduce。第二轮的 MapReduce 与上面提到的计算 GroupBy 的一般方法类似，只是 key 的输出不仅仅是 group\_value，还需要tuple\_id。这样才能通过与分界点的比较确定数据要分发到某个确定的 reducer 上。使用 TeraSort 计算 GroupBy 还需要第三轮的 MapReduce，因为在上一轮的计算中，大的 group 被划分了，因此第三轮的 MapReduce 是将被划分的 group 进行合并。
 
-以上 是 \cite{tao2013minimal} 中提到的将 TeraSort 与 GroupBy 结合的方法，但论文中忽略了一个非常重要的关键点，那就是 MapReduce 的 combiner。combiner 是 MapReduce 一个重要的机制，它等同于本地的 reducer。它会对 mapper 的输出进行一次本地的 reduce 计算，然后再将数据发到相应的 reducer 上，这样可以减少网络传输的数据量和reducer 的计算量。正因为这个 combiner 的作用，对于一些非整体性的度量函数，combiner 可以在本地对同一个 group 内的数据进行一次计算，将一个 mapper 上一个 group 内的数据压缩成一条记录发送到 reducer 上，而不是将这个 group 内的数据直接发送到 reducer上，这样每个 reducer 获得的数据量比不使用 combiner 获得的数据量要少得多。
+以上 是 \cite{tao2013minimal} 中提到的将 TeraSort 与 GroupBy 结合的方法，但论文中忽略了一个非常重要的关键点，那就是 MapReduce 的 combiner。Combiner的作用在上一章有提及，它是 MapReduce 一个重要的机制，它等同于本地的 reducer。它会对 mapper 的输出进行一次本地的 reduce 计算，然后再将数据发到相应的 reducer 上，这样可以减少网络传输的数据量和reducer 的计算量。对于代数度量函数，combiner 可以在本地对同一个 group 内的数据进行一次计算，将一个 mapper 上一个 group 内的数据压缩成一条记录发送到 reducer 上，而不是将这个 group 内的数据直接发送到 reducer上，由于mapper的数量是有限的，因此reducer获得的同一个group内的数据也是有限的。
 
-倘若不使用 combiner，TeraSort 和 GroupBy 的结合是非常有用的。但是若使用了 combiner，即使是使用 Naive 的方法计算 GroupBy，对于非整体性度量函数，也基本不存在 reducer 上数据不均匀的情况， 这种情况下，TeraSort 就没有使用的必要了。但这并不是完全否定 TeraSort 对 GroupBy 的作用，因为对于整体性度量函数，它对数据的划分依然有非常大的借鉴作用。在实验章节中，将会分别比较整体性度量与非整体性度量的函数在不同算法下的效率与各个reducer上数据的分布，从而分析出 TeraSort 合适使用的场景。
+
+倘若不使用 combiner，TeraSort 和 GroupBy 的结合是非常有用的。但是若使用了 combiner，即使是使用 Naive 的方法计算 GroupBy，对于代数度量函数，也基本不存在 reducer 上数据不均匀的情况。 这种情况下，TeraSort 就没有使用的必要了。但这并不是完全否定 TeraSort 对 GroupBy 的作用，因为对于整体性度量函数，combiner无法发挥作用，那么TeraSort 对数据的划分就有非常大的作用了。在实验章节中，将会分别比较整体性度量与代数度量在不同算法下的效率与各个reducer上数据的分布，从而分析出 TeraSort 合适使用的场景。
 
 \section{TeraSort与数据立方}
 

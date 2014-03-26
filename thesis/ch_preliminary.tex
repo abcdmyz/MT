@@ -134,7 +134,7 @@ TeraSort最初用于在 MapReduce 中对全局数据进行排序。虽然 MapRed
 \caption{使用MapReduce+TeraSort对数据排序}\label{tera_sort} 
 \end{figure}
 
-TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上的数据的数据范围。也就是规定某一个范围内的数据必须落在指定的 reducer 上，而不是使用 MapReduce 本身的哈希函数将这些数据随机分发到各个 reducer 上。但如何确定这些范围值与 reducer 之间的关系呢，尤其是对原数据的数据特征并没有太多了解的情况下。这里使用采样的方法。
+TeraSort 能令全局有序的重要关键是，控制落到每个 reducer 上的数据的数据范围。也就是规定某一个范围内的数据必须落在指定的 reducer 上，而不是使用 MapReduce 本身的哈希函数将这些数据随机分发到各个 reducer 上。对于如何确定这些范围值与 reducer 之间的关系，TeraSort 使用采样的方法。
 
 对原数据进行一定比例的采样，这个最佳比例 \cite{tao2013minimal} 已给出证明。将采样的数据都发到同一个 reducer 上。根据 MapReduce 的特性，同一个 reducer 内的数据会被排序。若采样的样本大小为 s，reducer 的数量为 t。那么要从采样序列中选取 t-1 个点作为分界点，这些分界点是限定落入各个 reducer 中的数据的数据范围。对于第 i 个分界点选取的方法是，选取采样序列中的第 $i\times \left \lceil \frac{s}{t} \right \rceil$ 个点作为第 i 个分界点。图 \ref{tera_sort_mr1} 为  TeraSort 采样以及选取分界点的过程。图中假设 reducer 数据量为4，因此选取的分界点数量为3，红色的数字表示其被选为分界点。图中选取了3个分界点，分别为25、50、78，这就给出了4个 reducer 接收数据的数据范围，分别是$\left[- \infty, 25 \right], \left(25, 50 \right], \left(50, 78 \right], \left(78, +\infty \right]$。
 

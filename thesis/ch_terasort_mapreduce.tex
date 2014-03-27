@@ -26,14 +26,21 @@
 
 倘若不使用 combiner，TeraSort 和 GroupBy 的结合是非常有用的。但是若使用了 combiner，即使是使用 Base 的方法计算 GroupBy，对于代数度量函数，也基本不存在 reducer 上数据不均匀的情况。 这种情况下，TeraSort 就没有使用的必要了。但这并不是完全否定 TeraSort 对 GroupBy 的作用，因为对于整体性度量函数，combiner无法发挥作用，那么TeraSort 对数据的划分就有非常大的作用了。在实验章节中，将会分别比较整体性度量与代数度量在不同算法下的效率与各个reducer上数据的分布，从而分析出 TeraSort 适用的场景。
 
-\section{TeraSort与分布式数据立方}
+
+\section{TSP-Cube}
+
+TSP-Cube 将 TeraSort、Pipesort 与分布式数据立方结合，从数据划分和合并计算这两个方面一同提高数据立方的计算效率。
+
+TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Batch Area；同时对它存在的缺点进行了改进。TSP-Cube使用 TeraSort 的思想，利用分界点确定要划分的group，从而改进了 MR-Cube 中由于一个region内有大group，而对region内所有group都进行划分的方法，避免了对小 group 的不必要的划分。TSP-Cube 还使用分界点对大group进行划分，与MR-Cube中使用求余的方式相比，数据划分更均匀。同时，TSP-Cube 使用PipeSort 替换了了MR-Cube 中的BUC，充分利用了 MapReduce 框架的特性，并且针对层次型的数据集，提出了一个更简单有效地形成pipeline的方法。
+
+\subsection{TeraSort与分布式数据立方}
 
 TSP-Cube针对MR-Cube的改进主要包括两个方面，一方面是使用TeraSort的思想对数据进行划分，另一个使用Pipesort计算多个group的聚集。这一节阐述将TeraSort运用于数据立方计算中，对数据进行划分。而pipeosrt的使用将在下一节中阐述。
 
 由于 GroupBy 是数据立方的一个子操作，受到 TeraSort 与 GroupBy 结合的启发，TSP-Cube 将TeraSort 与数据立方相结合，并且发现这样的结合能解决上一章中提到的 MR-Cube 存在的一些问题。
 
 
-\subsection{数据采样与划分}
+%\subsection{数据采样与划分}
 
 对于整体性度量函数，无论是 MR-Cube 还是 TSP-Cube 都要解决一个问题，那就是各个reducer之间负载均衡的问题，而解决这个问题的方法都是对大 group 进行划分。在 MR-Cube 中是通过采样，然后根据采样数据中 group 的大小确定 region 是否为 reducer-unfriendly region。对于 reducer-unfriendly 的region，region 内的 group 都需要进行划分，无论group大小与否。这样会对小group产生不必要的划分，其最根本的原因是划分点的数量。在MR-Cube中，同一个region内所有的group都拥有相同的划分因子，即划分点数量，这些划分点保证大group能够被划分，但对于小group而言，则使用了过多的划分点。而在TSP-Cube中，即使只使用与reducer数量相同的划分点，也能划分大group，并且令各个reducer负载均衡。
 
@@ -69,7 +76,7 @@ TSP-Cube之所以能令划分点较为精准地落在需要划分的group上，�
 在 MR-Cube 中使用求余的方式对数据进行划分，求余是简单有效的哈希函数，但在一些极端情况下，原数据有倾斜性，导致划分后的数据可能依然有倾斜性。例如使用 MR-Cube 的方法计算的划分因子的结果是2，也就是令度量属性值对2求余从而达到数据划分的效果，若需要划分的属性值若大部分都是奇数，这样将导致数据划分的失效，数据划分后依然是不均匀的。而使用 TSP-Cube 的方法则可以避免这种情况。因为 TSP-Cube 对数据的划分是基于样本出现的顺序和频率的，即使所有的度量属性值都是奇数，TSP-Cube 依然可以较为均匀地划分数据。
 
 
-\subsection{数据立方的计算}
+%\subsection{数据立方的计算}
 
 以上的采样与分界点的选取是第一轮的 MapReduce，也即是对数据的划分。第二轮进行的 MapReduce 是对数据立方的计算。这里先不考虑将多个 group 的数据放在同一个 reduce 函数里计算的情况（即MR-Cube 中提出的 Batch Area），仍采用 Naive 的方法，映射所有的region。TSP-Cube 与 Batch Area 的结合将在下一节中阐述。
 
@@ -83,7 +90,7 @@ TSP-Cube之所以能令划分点较为精准地落在需要划分的group上，�
 最后进行第三轮的 MapReduce，将被划分的数据进行合并。这里合并的方法非常简单，并且实验证明也是很高效的。合并的方法与 MapReduce 做单词统计是类似的，因为第二轮 MapReduce 输出的 key 是 region\_id 和 group\_value，输出的 value 是 measure\_value。因此在第三轮的 MapReduce 中，只要将第二轮输出的数据读入，对相同 region\_id 和 group\_value 的数据做一次合并即可，这个过程与单词统计是一样的。虽然上一轮将部分的 group 进行划分，但是这个划分的数量是有限，因此合并过程中，具有相同 region\_id 和 group\_value 的数据也并不多。
 
 
-\section{PipeSort 与分布式数据立方}
+\subsection{PipeSort 与分布式数据立方}
 
 上一节中主要阐述了数据的划分，在这一节中将详细阐述如何使用 pipesort 将多个 group 放在同一个 reduce 函数里计算，也就是减少数据立方计算过程中，中间数据的产生。 MR-Cube 提出了 Batch Area 的概念和一些划分 Batch Area 建议遵循的规则，但是并没有给出简单且具体的划分方法。同时 MR-Cube 中使用的是 BUC 对Batch 内的 group 进行计算，但其实这种方法并没有充分利用 MapReduce 框架的特点与优势。因此接下来是针对以上两点进行改进。
 
@@ -145,17 +152,19 @@ Country & State & City & Topic & Category & Subcategory \\
 
 因此这里建议，对于非层次型的数据集可使用 \cite{wang2013scalable} 中的方法形成 pipeline 方案，而对于层次型的数据集则使用region转换成字符串排序后形成的pipeline 方案。
 
-pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。由于MapReduce的分布式特性，它能并行处理多条pipeline，也就是每个reduce函数都处理与一条pipeline相关的数据。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分析使用pipesort计算数据立方时 mapper 的输出，因为mapper的输出决定了各个reduce函数接收的数据。在e1 记录中，a0，b0，c0，d0分别对应属性A，B，C，D，且它们是维属性，无层次型关系。m0对应的属性M为度量属性。以下暂不考虑数据的划分。
+pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。由于MapReduce的分布式特性，它能并行处理多条pipeline，也就是每个reduce函数都处理与一条pipeline相关的数据。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分析使用pipesort计算数据立方时 mapper 的输出，因为mapper的输出决定了各个reduce函数接收的数据。在e1 记录中，a0，b0，c0，d0分别对应属性A，B，C，D，它们是维属性，无层次型关系。m0对应的属性M为度量属性。以下暂不考虑数据的划分。
 
-由于 pipesort 的使用，mapper 的输出不再是映射所有的 region，而仅需要映射 每个pipeline 中的一个 region 即可。在这里 mapper 的key值选择 region(A) 作为映射，而将剩余属性的值以及度量值放在value中。因此对于记录e1，mapper输出的key为[region\_id, a0]，value的输出为[b0, c0, d0, m0]。根据MapReduce的机制，相同group值的数据都会放在同一个reduce函数中计算，因此Group(A=a0)的数据都放在同一个reduce函数中计算。由于value中包含了pipeline的其他属性BCD的值，以及度量属性M的值，并且用户可重载MapReduce的函数，令value按照一定要求进行排序，因此在Group(A=a0)的reduce函数中，可对数据进行一次扫描且只用少量内存，即可计算这条pipeline中与A=a0值相关的其他group。
+由于 pipesort 的使用，mapper 的输出不再是映射所有的 region，而仅需要映射 每个pipeline 中的一个 region 即可。在这里 mapper 的key值选择 region(A) 作为映射，而将剩余属性的值以及度量值放在value中。因此对于记录e1，mapper输出的key为[region\_id, a0]，value的输出为[b0, c0, d0, m0]。根据MapReduce的机制，具有相同group值的数据都会放在同一个reduce函数中计算，因此Group(A=a0)的数据都放在同一个reduce函数中计算。由于value中包含了pipeline的其他属性BCD的值，以及度量属性M的值，并且用户可重载MapReduce的函数，令value按照一定要求进行排序，因此在Group(A=a0)的reduce函数中，可对数据进行一次扫描且只用少量内存，即可计算这条pipeline中与A=a0值相关的其他group。
 
-倘若上述的pipeline映射的不是region(A)，而是pipeline中其他的region，例如region(AB)，即mapper输出的key值为属性AB组成的值，这将导致 region(A)的group被拆分，之后还需要进行合并操作，并且这样也无法计算一条完整的pipeline，因为这条pipeline到了属性AB就被终止了。因此在pipesort与分布式数据立方结合的计算中，mapper 输出的 key值为pipelinee 末尾region对应的属性值，value 值为起始region中的属性除去 末尾region的属性后对应的属性值以及度量值。在ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline中，ABCD为起始region，A为末尾region。
+倘若上述的pipeline映射的不是region(A)，而是pipeline中其他的region，例如region(AB)，即mapper输出的key值为属性AB组成的值，那么 region(A)的每一个group都被拆分到多个reduce函数中，导致之后还需要进行合并操作，并且这样也无法计算一条完整的pipeline，因为这条pipeline到了属性AB就被终止了。因此在pipesort与分布式数据立方结合的计算中，mapper 输出的 key值为pipelinee 末尾region对应的属性值，value 值为起始region的属性除去 末尾region的属性后对应的属性值以及度量值。起始region 指pipeline中第一个region，末尾region指pipeline中最后一个region。在ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline中，ABCD为起始region，A为末尾region。
 
+由于TSP-Cube使用了TeraSort，因此 TSP-Cube 需要执行3次MapReduce完成数据立方的计算。第一轮 MapReduce 是采样以及选取分界点，第二轮 MapReduce 结合 pipesort 计算数据立方，第三轮MapReduce 对上一轮输出的结果进行合并。
 
-\section{TSP-Cube}
+由于将 TeraSort 与 Pipesort 结合，因此这里第一轮 MapReduce 的采样数据与前面不考虑 pipesort 的采样有所不同。在之前的章节中提到，使用TeraSort，第一轮与第二轮 mapper 输出的key需要一致，才能进行比较，从而确定数据落到哪个reducer上。由于第二轮的 MapReduce 与 pipesort 结合，不再需要映射所有的region，只需要映射pipeline末尾的region，因此第一轮采样的数据也不需要映射所有的region，只需要映射pipeline末尾的region即可。并且这两轮MapReduce中 mapper的输出依然是[region\_id, group\_value, tuple\_id or measure\_value] 这样的复合键。
 
-最后将 TeraSort、Pipesort 与分布式数据立方结合，从这两个方面一同提高数据立方的计算效率。
+TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1}、\ref{tscube_mr2} 所示。
 
+%将TeraSort 与pipeline结合，若末尾的region过大，
 
 %TSP-Cube 可对大的group 进行划分，pipesort 可减少中间数据的产生，并且将多个 group 放在同一个 reduce 函数中计算。由于 pipesort 的使用，无论是采样还是数据立方的计算，mapper 的输出不再是映射所有的 region，而仅需要映射这个pipeline 中的一个 region 即可。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分别分析采样与数据立方计算时 mapper 的输出。以下将Tera Sort 与 PipeSort结合计算数据立方的方法称为 TSP-Cube。
 
@@ -167,14 +176,12 @@ pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。
 
 %对于任何一条 pipeline，起始的region 一定是属性数量最多的，末尾的reigon一定是属性数量最少的。对于每条记录，都要与每个pipeline做映射。在数据立方的计算中，mapper 输出的 key值为 末尾region对应的属性值与tuple\_id 或 measure\_id的组合，mapper 输出的value 值为起始region中的属性除去 末尾region的属性后对应的属性值。如图\ref{dataset_table} 对应的数据集，生成的pipesort方案如图\ref{sorted_region}所示共有4个pipeline，因此每条记录都要映射4个键值对。
 
-\subsection{TSP-Cube 实现伪代码}
+%\section{TSP-Cube 实现伪代码}
 
-TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1}、\ref{tscube_mr2} 所示。
 
-整体而言，TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Batch Area；同时对它存在的缺点进行了改进。TSP-Cube使用 TeraSort 的思想确定要划分的group，从而改进了 MR-Cube 中由于一个region内有大group，而对region内所有group都进行划分的方法，避免了对小 group 的不必要的划分。同时 TSP-Cube 使用分界点对大group进行划分，与MR-Cube中使用求余的方式相比，数据划分更均匀。并且TSP-Cube 使用PipeSort 替换了了MR-Cube 中的BUC，充分利用了 MapReduce 框架的特性。
 
 {\renewcommand\baselinestretch{1} 
-\begin{algorithm}
+\begin{algorithm}[ht]
 \caption{TSP-Cube Estimate Algorithm}
 \label{tscube_mr1}
 {\fontfamily{\familydefault}\selectfont
@@ -194,8 +201,7 @@ TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1
      	\While {t < SampleSize}
      		\If {${k}_{t}$ is the $i\times \left \lceil \frac{SampleSize}{BoundaryNum} \right \rceil th$ object }
      		 \State	
-     		 EMIT([${k}_{t}$],[arbitrary value]) 
-     		 \State i++
+     		 EMIT([${k}_{t}$],[arbitrary value]); i++
      		\EndIf
      		\State t++
      	\EndWhile
@@ -206,7 +212,7 @@ TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1
 
 
 
-\begin{algorithm}[t]
+\begin{algorithm}[ht]
 \caption{TSP-Cube Materialize Algorithm}
 \label{tscube_mr2}
 {\fontfamily{\familydefault}\selectfont
@@ -224,7 +230,7 @@ TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1
    	 \EndFunction
    	 \State
      \Function {Materialize-REDUCE}{k,[v1,v2,v3...]}
-     	\State Pipeline Calculate 
+     	%\State Pipeline Calculate 
      	\ForAll {${v}_{i}$}
      		\If {${v}_{i} \neq {v}_{i-1}$}
      			\State

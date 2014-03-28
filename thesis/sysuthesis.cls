@@ -591,7 +591,7 @@
 %\newcommand{\thesisnameenglish}{%
 %	\noindent A Dissertation\\
 %	submitted in partial fulfillment of the requirements\\
-%	for the degree of Doctor of Philosophy in\\
+%	for the degree of Master of Philosophy in\\
 %	Sun Yat-Sen University}
 \newcommand{\detailnameenglish}{
 	\begin{tabular}{rl}

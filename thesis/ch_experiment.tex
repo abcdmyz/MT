@@ -3,8 +3,7 @@
 以下实验使用多种不同分布的数据集，比较多种在 MapReduce 框架下计算数据立方的方法，分别从运行时间、各个reducer处理的数据量、需要合并的数据量等角度进行比较。实验结果表明，没有任何一种方法是``万能”的，根据不同的度量函数、数据分布，不同的方法各有优势。对于代数度量函数，Naive的方法足以解决。而对于整体性度量函数，TSP-Cube相比MR-Cube，不仅仅在性能上有优势，同时还能处理更多不同的倾斜的数据分布，因此更具有通用性。
 
 \section{实验环境}
-
-节点数为7，reducer的数量为20。（此处为完成，之后再补充）
+实验的环境使用 Hadoop 1.0.4 所搭建的集群。节点数为7，reducer的数量为20。
 
 \section{实验数据集与度量}
 
@@ -87,7 +86,7 @@ TSP-Cube与MR-Cube相比，在三种分布下，TSP-Cube的运行时间都比MR-
 
 除了比较运行时间与reducer的负载外，以下还将比较MR-Cube与TSP-Cube在不同分布下，在第三轮MapReduce时，需要合并的数据量，以及TSP-Cube的3次MapReduce分别占总时间的比例。在前面的章节提到，MR-Cube对group的划分方法在一些场景下会导致不必要的划分，从而加重了之后的合并操作，因此这里将两种方法需要合并的数据量进行比较，从而说明TSP-Cube需要进行合并的数据比MR-Cube更少。
 
-图\ref{d2a_distinct_interdata}和图\ref{d2a_distinct_interdata}分别为MR-Cube与TSP-Cube在三种数据分布下，需要合并的数据量。由于MR-Cube中有可能产生不必要的数据划分，因此随着数据量增大，MR-Cube要合并的数据比TSP-Cube要多。
+图\ref{d1_distinct_interdata}和图\ref{d2a_distinct_interdata}分别为MR-Cube与TSP-Cube在D1和D2A数据分布下，需要合并的数据量。在D1中，由于数据倾斜性并不明显，因此两者需要合并的数据量差别不大。但在D2A中，由于数据的倾斜性较明显，而MR-Cube会对数据产生不必要的划分，因此随着数据量增大，MR-Cube要合并的数据比TSP-Cube要多。
 
 图\ref{d1_distinct_mr123}和图\ref{d2a_distinct_mr123} 分别为TSP-Cube在D1和D2A数据分布，数据集大小为 ${10}^{9}$ 下，三次MapReduce占总体时间的比例。随着数据量增大，MR1和MR3所占的比例都会减少。因此花费一定代价对数据进行划分从而使数据分配均匀对总体性能的提升是有意义的。
 
@@ -96,13 +95,13 @@ TSP-Cube相对于其他方法并不是``完美无缺”或者各方面``遥遥�
 \begin{figure}[!ht]
 \begin{tabular}{cc}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d1_distinct_time} 
+\begin{minipage}[t]{0.4\textwidth}
+\centering\includegraphics[width=2.7in]{picture/ch_experiment_gnuplot_eps/d1_distinct_time} 
 \caption{D1-DISTINCT 运行时间}\label{d1_distinct_time} 
 \end{minipage}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d1_distinct_input} 
+\begin{minipage}[t]{0.6\textwidth}
+\centering\includegraphics[width=3.2in]{picture/ch_experiment_gnuplot_eps/d1_distinct_input} 
 \caption{D1-DISTINCT Reducer Input}\label{d1_distinct_input} 
 \end{minipage}
 
@@ -114,13 +113,13 @@ TSP-Cube相对于其他方法并不是``完美无缺”或者各方面``遥遥�
 \begin{figure}[!ht]
 \begin{tabular}{cc}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2a_distinct_time} 
+\begin{minipage}[t]{0.4\textwidth}
+\centering\includegraphics[width=2.7in]{picture/ch_experiment_gnuplot_eps/d2a_distinct_time} 
 \caption{D2A-DISTINCT 运行时间}\label{d2a_distinct_time} 
 \end{minipage}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2a_distinct_input} 
+\begin{minipage}[t]{0.6\textwidth}
+\centering\includegraphics[width=3.2in]{picture/ch_experiment_gnuplot_eps/d2a_distinct_input} 
 \caption{D2A-DISTINCT Reducer Input}\label{d2a_distinct_input} 
 \end{minipage}
 
@@ -132,12 +131,12 @@ TSP-Cube相对于其他方法并不是``完美无缺”或者各方面``遥遥�
 \begin{tabular}{cc}
 
 \begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2b_distinct_time} 
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d2b_distinct_time} 
 \caption{D2B-DISTINCT 运行时间}\label{d2b_distinct_time} 
 \end{minipage}
 
 \begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2b_distinct_input} 
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d2b_distinct_input} 
 \caption{D2B-DISTINCT Reducer Input}\label{d2b_distinct_input} 
 \end{minipage}
 
@@ -148,13 +147,13 @@ TSP-Cube相对于其他方法并不是``完美无缺”或者各方面``遥遥�
 \begin{tabular}{cc}
 
 \begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2a_distinct_interdata} 
-\caption{D2A-DISTINCT 合并数据}\label{d2a_distinct_interdata} 
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d1_distinct_interdata} 
+\caption{D1-DISTINCT 合并数据量}\label{d1_distinct_interdata} 
 \end{minipage}
 
 \begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2a_distinct_interdata} 
-\caption{D2A-DISTINCT 合并数据}\label{d2a_distinct_interdata} 
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d2a_distinct_interdata} 
+\caption{D2A-DISTINCT 合并数据量}\label{d2a_distinct_interdata} 
 \end{minipage}
 
 \end{tabular}
@@ -165,12 +164,12 @@ TSP-Cube相对于其他方法并不是``完美无缺”或者各方面``遥遥�
 \begin{tabular}{cc}
 
 \begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d1_distinct_mr123} 
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d1_distinct_mr123} 
 \caption{D1-DISTINCT TSP-CUBE MR 比例}\label{d1_distinct_mr123} 
 \end{minipage}
 
 \begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2a_distinct_mr123} 
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d2a_distinct_mr123} 
 \caption{D2A-DISTINCT TSP-CUBE MR 比例}\label{d2a_distinct_mr123} 
 \end{minipage}
 
@@ -194,13 +193,13 @@ Naive+Pipesort的方法在计算COUNT度量时，性能不如Naive的方法，�
 \begin{figure}[!ht]
 \begin{tabular}{cc}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d1_count_time} 
+\begin{minipage}[t]{0.4\textwidth}
+\centering\includegraphics[width=2.7in]{picture/ch_experiment_gnuplot_eps/d1_count_time} 
 \caption{D1-COUNT 运行时间}\label{d1_count_time} 
 \end{minipage}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d1_count_input} 
+\begin{minipage}[t]{0.6\textwidth}
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d1_count_input} 
 \caption{D1-COUNT Reducer Input}\label{d1_count_input} 
 \end{minipage}
 
@@ -211,13 +210,13 @@ Naive+Pipesort的方法在计算COUNT度量时，性能不如Naive的方法，�
 \begin{figure}[!ht]
 \begin{tabular}{cc}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2a_count_time} 
+\begin{minipage}[t]{0.4\textwidth}
+\centering\includegraphics[width=2.7in]{picture/ch_experiment_gnuplot_eps/d2a_count_time} 
 \caption{D2A-COUNT 运行时间}\label{d2a_count_time} 
 \end{minipage}
 
-\begin{minipage}[t]{0.5\textwidth}
-\centering\includegraphics[width=3in]{picture/ch_experiment/d2a_count_input} 
+\begin{minipage}[t]{0.6\textwidth}
+\centering\includegraphics[width=3in]{picture/ch_experiment_gnuplot_eps/d2a_count_input} 
 \caption{D2A-COUNT Reducer Input}\label{d2a_count_input} 
 \end{minipage}
 
@@ -226,7 +225,7 @@ Naive+Pipesort的方法在计算COUNT度量时，性能不如Naive的方法，�
 
 \section{实验结论}
 
-根据以上的实验，可得知不同的度量函数使用不同的方法会有不同的结果，目前没有一种方法能对于所有的数据分布、所有的度量都适用。在对一种方法进行评估时，需要考虑到它使用的场景，还需要结合它所基于的框架的特性，来综合评估这种方法。Naive的方法即使简单，也并不是在所有情况下都效率低下，结合框架的特性反而能让它发挥优势。而相对复杂的TSP-Cube方法，则着重于解决一些Naive解决不了的更为极端的情况。
+根据以上的实验，可得知不同的度量函数使用不同的方法会有不同的结果，目前没有一种方法能对于所有的数据分布、所有的度量都适用。在对一种方法进行评估时，需要考虑到它使用的场景（包括度量函数、数据分布等），还需要结合它所基于的框架的特性，来综合评估这种方法。Naive的方法即使简单，也并不是在所有情况下都效率低下，结合框架的特性反而能让它发挥优势。而相对复杂的TSP-Cube方法，则着重于解决一些Naive解决不了的更为极端的情况。
 
 对于代数度量，使用Naive的方法已经足够了。Naive方法实现简单，并且在代数度量中，并不会出现reducer负载不均衡的情况。而对于整体性度量，虽然TSP-Cube与其他方法相比，没有``遥遥领先”的优势，甚至在一些场景下，它与MR-Cube，Naive+Pipesort相比，性能上的优势并不突出，但是它与这两种方法相比，能处理从普通至极端的场景，在不同的场景不同的数据分布下，依然能保持性能优势，更具有通用性，因此建议对于整体性度量函数，使用TSP-Cube的方法。
 

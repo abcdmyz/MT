@@ -102,7 +102,7 @@ TSP-Cube之所以能令划分点较为精准地落在需要划分的group上，�
 
 PipeSort\cite{agarwal1996computation} 是 1996 年由 Agarwal 等人提出的一种计算数据立方的方法。Pipe 指的是 Pipeline，即流水线。它是一种自顶向下的计算数据立方的方法。它利用数据的有序性以及多个 group 之间具有共同前缀的特性，对数据只扫描一遍并且使用极少的内存即可计算多个 group 的聚合。
 
-如图\ref{pipesort} 所示，这是一个4维的数据立方其中一种可行的 pipeline 方案。每个虚线框内表示的是一个pipeline。这些 pipeline 之间是共享共同前缀的，例如 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这样一个pipeline，将数据按照 ABCD 这样的属性顺序排序，再对数据进行扫描，在扫描的过程中可同时计算 ABC、AB、A 的聚合。因为数据已经按照 ABCD 这样的维属性进行排序，那么具有相同 ABC、AB 或者 A 值的数据在顺序上必定会相连的，因此可通过一遍扫描计算出这 4 个 group 的聚合。
+如图\ref{pipesort} 所示，这是一个4维的数据立方其中一种可行的 pipeline 方案。每个虚线框内表示的是一个pipeline。这些 pipeline 之间是共享共同前缀的，例如 $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$ 这样一个pipeline，将数据按照 ABCD 这样的属性顺序排序，再对数据进行扫描，在扫描的过程中可同时计算 ABC、AB、A 的聚合。因为数据已经按照 ABCD 这样的维属性进行排序，那么具有相同 ABC、AB 或者 A 值的数据在顺序上必定会相连的，因此可通过一遍扫描计算出这 4 个 group 的聚合。
 
 \begin{figure}[!htb]
 \centering\includegraphics[width=3in]{picture/ch_terasort_mr/pipesort} 
@@ -115,7 +115,7 @@ PipeSort\cite{agarwal1996computation} 是 1996 年由 Agarwal 等人提出的一
 
 在\cite{wang2013scalable} 中提出了使用随机贪心的方式形成 pipeline 方案。将所有的 region 都放入一个集合内，每次从集合中选择维度数量最多的一个 region。对region内的维度进行组合，对于每个组合都可以得到一种 pipeline 方案。选择一种pipeline方案，其包含的 region 在集合中数量最多，并且把该pipeline 中的region都从集合中移除。然后继续从集合中选择维度数量最多的region至集合为空。
 
-例如对于 4 维的数据，维属性为ABCD。则在一开始选择维度数量最多的的 region，ABCD，它有多种组合，例如ACBD，ADBC等等，对于组合ABCD，可得到pipeline ABCD-\textgreater ABC-\textgreater AB-\textgreater A。这个pipeline中所有的region都在集合中，因此这个pipeline可选，并且把ABCD，ABC，AB，A这4个region从集合中移除。接着继续从集合中选择 region，假设选择了ACD，它有多种组合，例如ADC，CDA。对于ADC这个组合的pipeline是  ADC-\textgreater AD-\textgreater A，其中region A已经不在集合中，因此只有2个region在集合中。而对于CDA这个组合的pipeline是  DCA-\textgreater DC-\textgreater D，3个region都在集合中，因此选择 CDA 这个组合以及对应的pipeline。以此往下直到集合为空。图\ref{pipesort} 是其中一种 pipesort 方案。
+例如对于 4 维的数据，维属性为ABCD。则在一开始选择维度数量最多的的 region，ABCD，它有多种组合，例如ACBD，ADBC等等，对于组合ABCD，可得到pipeline $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$。这个pipeline中所有的region都在集合中，因此这个pipeline可选，并且把ABCD，ABC，AB，A这4个region从集合中移除。接着继续从集合中选择 region，假设选择了ACD，它有多种组合，例如ADC，CDA。对于ADC这个组合的pipeline是  $ADC\rightarrow AD\rightarrow A$，其中region A已经不在集合中，因此只有2个region在集合中。而对于CDA这个组合的pipeline是  $DCA\rightarrow DC\rightarrow D$，3个region都在集合中，因此选择 CDA 这个组合以及对应的pipeline。以此往下直到集合为空。图\ref{pipesort} 是其中一种 pipesort 方案。
 
 上述的方法比起二分图匹配更简单，虽然pipeline的方案不一定是最优的，并且pipeline之间的长度有一定的差距，但是由于计算资源与内存的充足，可以弥补以上两点不足。并且将这种方法与上一节中的数据划分结合，一些大的group必然会被划分，就可令各个reducer的计算量相对均匀。
 
@@ -158,11 +158,11 @@ Country & State & City & Topic & Category & Subcategory \\
 
 因此这里建议，对于非层次型的数据集可使用 \cite{wang2013scalable} 中的方法形成 pipeline 方案，而对于层次型的数据集则使用region转换成字符串排序后形成的pipeline 方案。
 
-pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。由于MapReduce的分布式特性，它能并行处理多条pipeline，也就是每个reduce函数都处理与一条pipeline相关的数据。下面以 ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分析使用pipesort计算数据立方时 mapper 的输出，因为mapper的输出决定了各个reduce函数接收的数据。在e1 记录中，a0，b0，c0，d0分别对应属性A，B，C，D，它们是维属性，无层次型关系。m0对应的属性M为度量属性。以下暂不考虑数据的划分。
+pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。由于MapReduce的分布式特性，它能并行处理多条pipeline，也就是每个reduce函数都处理与一条pipeline相关的数据。下面以 $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$ 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分析使用pipesort计算数据立方时 mapper 的输出，因为mapper的输出决定了各个reduce函数接收的数据。在e1 记录中，a0，b0，c0，d0分别对应属性A，B，C，D，它们是维属性，无层次型关系。m0对应的属性M为度量属性。以下暂不考虑数据的划分。
 
 由于 pipesort 的使用，mapper 的输出不再是映射所有的 region，而仅需要映射 每个pipeline 中的一个 region 即可。在这里 mapper 的key值选择 region(A) 作为映射，而将剩余属性的值以及度量值放在value中。因此对于记录e1，mapper输出的key为[region\_id, a0]，value的输出为[b0, c0, d0, m0]。根据MapReduce的机制，具有相同group值的数据都会放在同一个reduce函数中计算，因此Group(A=a0)的数据都放在同一个reduce函数中计算。由于value中包含了pipeline的其他属性BCD的值，以及度量属性M的值，并且用户可重载MapReduce的函数，令value按照一定要求进行排序，因此在Group(A=a0)的reduce函数中，可对数据进行一次扫描且只用少量内存，即可计算这条pipeline中与A=a0值相关的其他group。
 
-倘若上述的pipeline映射的不是region(A)，而是pipeline中其他的region，例如region(AB)，即mapper输出的key值为属性AB组成的值，那么 region(A)的每一个group都被拆分到多个reduce函数中，导致之后还需要进行合并操作，并且这样也无法计算一条完整的pipeline，因为这条pipeline到了属性AB就被终止了。因此在pipesort与分布式数据立方结合的计算中，mapper 输出的 key值为pipelinee 末尾region对应的属性值，value 值为起始region的属性除去 末尾region的属性后对应的属性值以及度量值。起始region 指pipeline中第一个region，末尾region指pipeline中最后一个region。在ABCD-\textgreater ABC-\textgreater AB-\textgreater A 这个pipeline中，ABCD为起始region，A为末尾region。
+倘若上述的pipeline映射的不是region(A)，而是pipeline中其他的region，例如region(AB)，即mapper输出的key值为属性AB组成的值，那么 region(A)的每一个group都被拆分到多个reduce函数中，导致之后还需要进行合并操作，并且这样也无法计算一条完整的pipeline，因为这条pipeline到了属性AB就被终止了。因此在pipesort与分布式数据立方结合的计算中，mapper 输出的 key值为pipelinee 末尾region对应的属性值，value 值为起始region的属性除去 末尾region的属性后对应的属性值以及度量值。起始region 指pipeline中第一个region，末尾region指pipeline中最后一个region。在$ABCD\rightarrow ABC\rightarrow AB\rightarrow A$ 这个pipeline中，ABCD为起始region，A为末尾region。
 
 
 

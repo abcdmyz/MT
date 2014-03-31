@@ -5,7 +5,7 @@
 \section{数据立方}
 为有效支持 OLAP 应用，Jim Gray 等人于 1996 年提出一种多维数据计算模型 —— 数据立方 (Data Cube) \cite{gray1997data}。该模型是针对事实表中各维度的所有组合对应的聚集计算，即各个维度不同组合的 GroupBy 计算。它利用各个组合之间的关系，提高计算效率。在 OLAP 术语中，聚合属性称为维属性， 被计算的属性称为度量属性。
 
-如图\ref{fact_table_data_cube} 所示，(a) 为事实表 R， A、B、C 为它的维属性，M 为它的度量属性。(b) 为基于事实表 R 构建的数据立方。（b）中的每个视图代表的就是某个特定维属性组合的 GroupBy 结果。所有 GroupBy 结果构成数据立方。
+如图\ref{fact_table_data_cube} 所示，(a) 为事实表 R， A、B、C 为它的维属性，M 为它的度量属性。(b) 为基于事实表 R 构建的数据立方。（b）中的每个视图代表某个特定维属性组合的 GroupBy 结果。所有 GroupBy 结果构成数据立方。
 
 \begin{figure}[!htb]
 \centering\includegraphics[width=6in]{picture/ch_preliminary/fact_table_data_cube} 
@@ -56,15 +56,15 @@ A & M \\
 
 度量，即对GroupBy的多条数据进行聚合计算，例如SUM，AVG，MEDIAN等。
 
-度量函数一般分为三大类， 分别是分布式度量（Distributive），代数度量（Algebraic）和整体性度量（Holistic）。
+度量函数一般分为三大类， 分别是分布度量（Distributive），代数度量（Algebraic）和整体性度量（Holistic）。
 
 以下使用一个二维的数据集$\left\{ {X}_{ij}|i=1,...I; j=1,...J \right\}$分别说明这三种度量函数的区别。
 
 \begin{itemize}
 
-\item \textbf{分布式度量}
+\item \textbf{分布度量}
 
-对于分布式度量函数 F()，如果存在一个辅助函数 G() 能令 $F(\text\{ {X}_{i,j} \text\}) = G(\text\{ F(\text\{ {X}_{i,j}|i=1,...,I \text\})|j=1,...J \text\})$，则度量函数 F() 为分布式度量函数。常见的分布式度量函数有 COUNT(), MIN(), MAX(), SUM()。大部分分布式度量函数中 $F=G$，但COUNT() 除外。在COUNT()度量函数中，$G=SUM()$。
+对于分布度量函数 F()，如果存在一个辅助函数 G() 能令 $F(\text\{ {X}_{i,j} \text\}) = G(\text\{ F(\text\{ {X}_{i,j}|i=1,...,I \text\})|j=1,...J \text\})$，则度量函数 F() 为分布度量函数。常见的分布度量函数有 COUNT(), MIN(), MAX(), SUM()。大部分分布度量函数中 $F=G$，但COUNT() 除外。在COUNT()度量函数中，$G=SUM()$。
 
 \item \textbf{代数度量}
 
@@ -76,7 +76,7 @@ A & M \\
 
 \end{itemize}
 
-之所以要对度量函数进行分类是因为其会影响数据的划分以及数据立方的计算。论文研究的是环境是分布式，因此数据划分是必然的。对于以上三种度量，在分布式度量与代数度量下，数据无论如何划分，使用辅助函数都能计算出最终结果，并且中间结果的数据量是确定的。但对于整体性度量，数据无法随意划分，或者数据的随意划分对其计算的意义并不大，因为中间结果数据量的不确定。然而这并不代表数据不能划分。在后面的章节中会提到，对于整体性度量按照一定的方法对数据进行划分，也能令中间结果的数据大小是确定的。为了方便，在之后的阐述中，将分布式度量与代数度量都归为代数度量。
+之所以要对度量函数进行分类是因为其会影响数据的划分以及数据立方的计算。论文研究的是环境是分布式，因此数据划分是必然的。对于以上三种度量，在分布度量与代数度量下，数据无论如何划分，使用辅助函数都能计算出最终结果，并且中间结果的数据量是确定的。但对于整体性度量，数据无法随意划分，或者数据的随意划分对其计算的意义并不大，因为中间结果数据量的不确定导致中间数据的维护代价可能很大。然而这并不代表数据不能划分。在后面的章节中会提到，对于整体性度量按照一定的方法对数据进行划分，也能令中间结果的数据大小是确定的。为了方便，在之后的阐述中，将分布度量与代数度量都归为代数度量。
 
 \section{MapReduce}
 
@@ -87,7 +87,7 @@ MapReduce是Google提出的一个分布式计算架构，用于大规模数据�
 \item Map对输入的数据块处理后，以键值对(Key-Value)的格式输出，排序并写到磁盘上。也就是图中的 Sort and spills to disk 阶段。
 \item 在Merge阶段从各个Mapper的输出中获取具有相同Key值的数据。
 \item 在Sort阶段，将上一阶段阶段合并的结果排序后发到对应的Reducer上。
-\item Reducer对输入的键值对进行处理后输出。具有相同Key值的数据会被分派到同一个Reduce函数中。
+\item Reducer对输入的键值对进行处理后输出。具有相同Key值的数据会被分派到同一个Reduce函数中进行计算。
 \end{enumerate}
 
 \begin{figure}[h]
@@ -95,14 +95,14 @@ MapReduce是Google提出的一个分布式计算架构，用于大规模数据�
 \caption{MapReduce的数据流动}\label{mr_data_flow} 
 \end{figure} 
 
-图\ref{mr_word_count}是用MapReduce进行单词统计的例子。输入的单词被划分成多个块分发到 mapper 上，mapper对于输入的单词逐个输出。在reduce阶段，相同的单词会分派到同一个reducer上，从而统计单词个数。
+图\ref{mr_word_count}是用MapReduce进行单词统计的例子。输入的单词被划分成多个块分发到 mapper 上，mapper对于输入的单词逐个输出。在reduce阶段，相同的单词会分派到同一个reduce函数上，从而统计单词个数。
 
 \begin{figure}[!ht]
 \centering\includegraphics[width=6in]{picture/ch_preliminary/mr_word_count} 
 \caption{MapReduce单词统计例子}\label{mr_word_count} 
 \end{figure} 
 
-以上仅是MapReduce最基础的机制，为了性能的优化以及用户的需求，MapReduce提供了更多高效、灵活的机制。以下介绍的一些机制在分布式数据立方计算中均会用到。正因为这些机制，令数据立方的计算与MapReduce有更好地结合，从而提高了数据立方的计算效率。
+以上仅是MapReduce最基础的机制，为了性能的优化以及用户的需求，MapReduce提供了更多高效、灵活的机制。以下介绍的一些机制在分布式数据立方计算中均会用到。正因为这些机制，令数据立方的计算与MapReduce有更好的结合，从而提高了数据立方的计算效率。
 
 \begin{itemize}
 
@@ -125,7 +125,7 @@ Combiner等同于本地的reducer，它会对各个 mapper 的输出进行一次
 
 \section{TeraSort}
 
-TeraSort\cite{o2008terabyte} 的思想在\cite{o2008terabyte} 被用于计算GroupBy，受\cite{o2008terabyte} 的启发，TeraSort被运用于 TSP-Cube 中进行数据立方的计算，因此这里对TeraSort进行简单的介绍。
+TeraSort\cite{o2008terabyte} 的思想在\cite{tao2013minimal} 被用于计算GroupBy，受\cite{tao2013minimal} 的启发，TeraSort被运用于 TSP-Cube 中进行数据立方的计算，因此这里对TeraSort进行简单的介绍。
 
 TeraSort最初用于在 MapReduce 中对全局数据进行排序。虽然 MapReduce 输出的最终结果是有序的，但仅是每个 reducer 输出的数据是有序的，而 reducer 之间的数据是无序的。图\ref{tera_sort}为不使用 TeraSort 与使用 TeraSort 的情况下对原数据使用 MapReduce 排序的结果。图中每个矩形内的数据表示 每个 reducer 的输出。对于不使用 TeraSort 的MapReduce，每个 reducer 输出的数据都是有序的，但是reducer 之间的数据是无序的。而对于使用 TeraSort 的 MapReduce，不仅仅是每个 reducer 内的数据是有序的，reducer 之间的数据也是有序的。
 

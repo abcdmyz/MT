@@ -4,9 +4,9 @@
 
 \section{数据立方的计算研究}
 
-数据立方的计算涉及到对原事实表数据进行扫描，对相应的 GroupBy 属性值执行聚合计算以及生成相应的立方数据等几个步骤。在立方计算的问题讨论中，如何尽可能地减少原事实表的数据扫描次数、降低 I/O 代价以及内存的开销，成为评价一个立方计算方法高效性的几个关键要点。
+数据立方的计算涉及到对原事实表数据进行扫描，对相应的 GroupBy 属性值执行聚合计算以及生成相应的立方数据等几个步骤。在数据立方计算的问题讨论中，如何尽可能地减少原事实表的数据扫描次数、降低 I/O 代价以及内存的开销，成为评价一个立方计算方法高效性的几个关键要点。
 
-GBLP \cite{gray1997data}、Pipesort、PipeHash \cite{agarwal1996computation} 以及 BUC \cite{beyer1999bottom} 是几种经典的数据立方计算方法。 其中GBLP、 Pipesort、 PipeHash 均是自顶向下的计算，而 BUC 则是自底向上的计算方法。如图 \ref{4_dimension_lattice}，展示了一个 4 维数据立方的 lattice，其中 A，B，C，D 均为属性维度。在一个数据立方的 lattice 中，每一个节点代表一个region，箭头从父节点指向子节点。自顶向下地计算，顾名思义就是在一个 lattice 中从父节点开始往下计算，而自底向上则相反。以下将分别介绍GBLP、Pipesort、Pipehash、BUC这几种算法。
+GBLP \cite{gray1997data}、Pipesort、PipeHash \cite{agarwal1996computation} 以及 BUC \cite{beyer1999bottom} 是几种经典的数据立方计算方法。 其中GBLP、 Pipesort、 PipeHash 均是自顶向下的计算，而 BUC 则是自底向上的计算方法。图 \ref{4_dimension_lattice}展示了一个 4 维数据立方的 lattice，其中 A，B，C，D 均为属性维度。在一个数据立方的 lattice 中，每一个节点代表一个region，箭头从父节点指向子节点。自顶向下地的算，就是在一个 lattice 中从父节点开始往下计算，而自底向上则相反。以下将分别介绍GBLP、Pipesort、Pipehash、BUC这几种算法。
 
 %Partitioned-Cube \cite{ross1997fast}
 
@@ -24,9 +24,9 @@ Jim Gary 等人在提出数据立方概念的同时，还提出了一种计算�
 1996 年，Agarwal 等人针对 GBLP 算法的缺陷，提出了第一个改进的数据立方计算方法 —— Pipesort\cite{agarwal1996computation} 。Pipe即Pipeline，流水线的意思。
 Pipesort的核心思想是，在一个 lattice 中，假如一个region的维属性顺序是它其中一个父region的维属性顺序的前缀，则该region可以在其父region的基础上计算而无需额外的排序。若父region的属性数量较多，则可形成Pipeline（流水线）。
 
-如图\ref{4_dimension_lattice} 所示的数据立方，假设每个region的维属性顺序就是图示的region名字从左到右的维顺序，例如对于region(ABC)，维顺序指数据首先按照维属性 A 排序，若 A 相同的情况下再按照 B 排序，以此类推。region(AB) 的维顺序是region(ABC) 的前缀，但region AC 不是region(ABC) 的前缀。在这样的情况下，region(AB) 可从 region(ABC)计算获得，并且仅需要在内存中缓存一条元祖数据即可，因为数据按照维属性排序，具有相同AB值的数据必定排列在一起。同理，region(ABC) 可从 region(ABCD) 计算获得，于是形成了Pipeline（流水线） $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$。因此对原数据和一些region进行多次排序，即可生成多条Pipeline。
+如图\ref{4_dimension_lattice} 所示的数据立方，假设每个region的维属性顺序就是图示的region名字从左到右的维顺序，例如对于region(ABC)，维顺序指数据首先按照维属性 A 排序，若 A 相同的情况下再按照 B 排序，以此类推。region(AB) 的维顺序是region(ABC) 的前缀，但region(AC) 不是region(ABC) 的前缀。在这样的情况下，region(AB) 可从 region(ABC)计算获得。并且仅需要在内存中缓存一条元祖数据即可，因为数据按照维属性排序，具有相同AB值的数据必定排列在一起。同理，region(ABC) 可从 region(ABCD) 计算获得，于是形成了Pipeline（流水线） $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$。因此对原数据和一些region进行多次排序，即可生成多条Pipeline。
 
-Pipesort 在 GBLP 的基础上，采样估算每个region的大小，通过二分匹配的方法找出每个region需要从哪个父region计算获得。然后基于这个二分匹配的结果将一个 lattice 切割成多棵子树，称为 Pipeline (流水线），Pipeline 内只有根节点需要对输入数据进行排序。对于每个 Pipeline，从根节点逐层往下计算，除根节点外，对于其他节点，只需在内存中为其缓存一条元组，极大地提高了内存的使用率。但是，当数据立方的维度变得很高时，Pipesort 的排序代价会大大地增长。当数据比较稀疏时，排序的中间结果不能完全存储于内存中，还需进行外部排序，增加了 I/O 代价。图\ref{Pipesort} 为 4 维数据立方使用 Pipesort 的计算过程。图(a)中的虚线表示从父region排序后得到子region的过程，实线表示流水线的计算过程。图(b)是最终需要计算的流水线，椭圆中的region表示需要重新排序。
+Pipesort 在 GBLP 的基础上，采样估算每个region的大小，通过二分匹配的方法找出每个region需要从哪个父region计算获得。然后基于这个二分匹配的结果将一个 lattice 切割成多棵子树，称为 Pipeline (流水线），Pipeline 内只需对起始region的数据进行排序。对于每个 Pipeline，从根节点逐层往下计算，除根节点外，对于其他节点，只需在内存中为其缓存一条元组，极大地提高了内存的使用率。但是，当数据立方的维度变得很高时，Pipesort 的排序代价会大大地增长。当数据比较稀疏时，排序的中间结果不能完全存储于内存中，还需进行外部排序，增加了 I/O 代价。图\ref{pipesort} 为 4 维数据立方使用 Pipesort 算法的计算过程。图(a)中的虚线表示从父region排序后得到子region的过程，实线表示流水线的计算过程。图(b)是最终需要计算的流水线，椭圆中的region表示需要重新排序。
 
 
 \begin{figure}[!htb]
@@ -36,7 +36,7 @@ Pipesort 在 GBLP 的基础上，采样估算每个region的大小，通过二�
 
 \subsection{PipeHash}
 
-Agarwal 等人还提出了 PipeHash[19]算法，该算法是 PipeSot 算法的一个变形，基于 Hash(散列)实现的。PipeHash 算法首先会根据 GBLP 算法的思想将一个 lattice 修剪成一棵 lattice 执行树。为了使得在同一个聚集计算里的所有元组能够在内存上是相邻的，PipeHash 会为每一个计算的region维护一个散列表。假如有些region的散列表不能同时存放在内存里，则 PipeHash 算法就会把一个 lattice 执行树划分成多棵子树，使得每棵子树内所有region的 Hash表都能够同时存储于内存中。 由于划分代价要比排序代价要小，所以PipeHash 的性能要比 Pipesort 要高。但 Pipesort 用一个排序可以计算多个聚集结果，而 PipeHash 则每次都需要对数据进行重新计算散列值，且 PipeHash 相对于Pipesort 需要大量的内存来存储每棵子树内所有region的散列表。
+Agarwal 等人还提出了 PipeHash[19]算法，该算法是 PipeSot 算法的一个变形，基于哈希实现的。PipeHash 算法首先会根据 GBLP 算法的思想将一个 lattice 修剪成一棵 lattice 执行树。为了使得在同一个聚集计算里的所有元组能够在内存上是相邻的，PipeHash 会为每一个计算的region维护一个散列表。假如有些region的散列表不能同时存放在内存里，则 PipeHash 算法就会把一个 lattice 执行树划分成多棵子树，使得每棵子树内所有region的哈希表都能够同时存储于内存中。 由于划分代价要比排序代价要小，所以PipeHash 的性能要比 Pipesort 要高。但 Pipesort 用一个排序可以计算多个聚集结果，而 PipeHash 则每次都需要对数据进行重新计算哈希值，且 PipeHash 相对于Pipesort 需要大量的内存来存储每棵子树内所有region的哈希表。
 
 %\subsection{Partitioned-Cube}
 
@@ -49,9 +49,9 @@ Agarwal 等人还提出了 PipeHash[19]算法，该算法是 PipeSot 算法的�
 
 \subsection{BUC}
 
-相对于上述几种自顶向下的数据立方计算算法，Beyer 等人在 1999 年提出的 BUC （Bottom Up Cube) 则是一种自底向上的算法。BUC 算法是针对冰山数据立方，即基于最少阈值的 GroupBy 计算而提出的，也即具有 HAVING 条件的 GroupBy，例如 HAVING COUNT(*) > 100 这样的条件限制。由于大部分的度量函数是具有单调性的，例如 COUNT()，若 GroupBy(A=a0) 的结果是小于 100，那么 GroupBy(A=a0， B=b0) 的结果必然是小于 100。正是这种单调性，加上有阈值限制，将数据立方的计算变成自底向上，则可以实现一定的剪枝。例如上述的例子 COUNT(*) > 100，如果 GroupBy(A=a0)是小于 100 的，那么与 A=a0 相关的 group 就不需要计算了。
+相对于上述几种自顶向下的数据立方计算算法，Beyer 等人在 1999 年提出的 BUC (Bottom Up Cube) 则是一种自底向上的算法。BUC 算法是针对冰山数据立方，即基于最少阈值的 GroupBy 计算而提出的，也即具有 HAVING 条件的 GroupBy，例如 HAVING COUNT(*) > 100 这样的条件限制。由于大部分的度量函数是具有单调性的，例如 COUNT()，若 Group(A=a0) 的结果是小于 100，那么 Group(A=a0， B=b0) 的结果必然是小于 100。正是这种单调性，加上有阈值限制，将数据立方的计算变成自底向上，则可以实现一定的剪枝。例如上述的例子 COUNT(*) > 100，如果 Group(A=a0)是小于 100 的，那么与 A=a0 相关的 group 就不需要计算了。
 
-BUC算法会根据聚集维属性对基表数据进行多次分组并计算聚集结果，且会基于维顺序对分组进行进一步的细分计算。因为在计算过程中考虑了阈值的问题，所以从 lattice 的底部越往上，region需要进行聚集计算的数据就会变得越少。图 \ref{BUC_partition} 是 BUC 根据属性 A 进行的划分。图 \ref{BUC_execution} 是 BUC 的执行过程。在图 \ref{BUC_execution} 中，原数据分别按照 A， B， C， D 这4个属性进行划分。在属性 A 的划分中，计算所有与属性 A 相关的region，当出现一个region不满足阈值时，则往上的region都不需要计算了。BUC 相比与 Pipesort 和 PipeHash 相比，非常适合有阈值限制的数据立方计算。但将 BUC 用于没有阈值限制的数据立方计算上，它也会有I/O 代价问题。
+BUC算法会根据维属性对基表数据进行多次分组并计算聚集结果，且会基于维顺序对分组进行进一步的细分计算。因为在计算过程中考虑了阈值的问题，所以从 lattice 的底部越往上，region需要进行聚集计算的数据就会变得越少。图 \ref{BUC_partition} 是 BUC 根据属性 A 进行的划分。图 \ref{BUC_execution} 是 BUC 的执行过程。在图 \ref{BUC_execution} 中，原数据分别按照 A， B， C， D 这4个属性进行划分。在属性 A 的划分中，计算所有与属性 A 相关的region，当出现一个region不满足阈值时，则往上的region都不需要计算了。BUC 与 Pipesort 和 PipeHash 相比，非常适合有阈值限制的数据立方计算。但将 BUC 用于没有阈值限制的数据立方计算上，它会有较大的排序以及I/O 代价问题。
 
 \begin{figure}[!htb]
 \centering\includegraphics[width=1.7in]{picture/ch_current_research/BUC_partition} 
@@ -73,7 +73,7 @@ BUC算法会根据聚集维属性对基表数据进行多次分组并计算聚�
 
 \section{分布式数据立方的计算研究}
 
-随着数据集的大小和维度的数量呈现极速增长，单机的内存和计算力已经无法满足数据立方的计算要求。因此业界开始研究利用分布式计算的优势实现数据立方的方法。\cite{nandi2011distributed} \cite{dehne2006cgmcube} \cite{ng2001iceberg} \cite{lee2012efficient}。
+随着数据集大小和维度数量的增长，单机的内存和计算力已经无法满足数据立方的计算要求。因此业界开始研究利用分布式计算的优势实现数据立方的方法。\cite{nandi2011distributed} \cite{dehne2006cgmcube} \cite{ng2001iceberg} \cite{lee2012efficient}。
 
 \cite{ng2001iceberg} 中提出了在由一定数量的 PC机 组成的集群上计算数据立方的方法，包括了RP、BPP、ASL、PT。因为该论文提出的实现环境是集群，因此这4种方法的重点都是如何将计算分配到多个节点上。以下简单地阐述这4种方法。
 
@@ -116,7 +116,7 @@ cgmCUBE \cite{dehne2006cgmcube}、RP、BPP、ASL、PT \cite{ng2001iceberg} 这�
 
 MR-Cube \cite{nandi2011distributed} 是基于 MapReduce 提出的数据立方算法，该算法结合了 MapReduce 与数据立方计算的特点，能够达到高效实现 TB 级数据量的数据立方计算。MR-Cube 针对整体性度量函数提出了相应的分布式计算思路，并指出了其中 2 种整体性度量函数实际的分布式计算处理方法。 为了避免MapReduce 中 reducer之间的数据分布不均衡，MR-Cube 采用对数据进行采样的方法来决定如何在后续计算中对region进行切割以使reducer之间装载平衡。利用数据立方region间计算过程可共享的特性， MR-Cube 对数据立方lattice 进行划分，使得每个分支能在共享一套数据的基础上进行 BUC 计算，从而降低了 MapReduce 处理的中间数据量。
 
-虽然 MR-Cube 是目前基于 MapReduce 框架一个较好的数据立方实现。但MR-CUBE 现有的一些不足不得不提。MR-Cube 的数据划分是基于整个region的，当region内某个group的计算数据较大，而其他group的计算数据都较小时，对整个region进行划分就会导致一些group不必要的划分。过多的划分会导致后续的合并计算过多，当数据较为倾斜时，这种划分方式的劣势就会十分明显。并且在 lattice 分支上使用 BUC 的计算，没有充分利用 MapReduce的特性，BUC 需要对数据扫描多次，这样将导致多次I/O或者需要将数据都载入内存。
+虽然 MR-Cube 是目前基于 MapReduce 框架一个较好的数据立方实现。但MR-CUBE 仍存在一些不足。MR-Cube 的数据划分是基于整个region的，当region内某个group的计算数据较大，而其他group的计算数据都较小时，对整个region进行划分就会导致一些group不必要的划分。过多的划分会导致后续的合并计算过多，当数据较为倾斜时，这种划分方式的劣势就会十分明显。并且在 lattice 分支上使用 BUC 的计算，没有充分利用 MapReduce的特性，BUC 需要对数据扫描多次，这样将导致多次I/O或者需要将数据都载入内存。
 
 由于本文的主要工作是对 MR-Cube 进行改进，因此关于 MR-Cube 主要的贡献和存在的不足将在下一章详细说明。
 

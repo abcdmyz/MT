@@ -31,7 +31,7 @@ Raghu Ramakrishnan 团队提出的 MapReduce DataCube 方案 \cite{nandi2012data
 \section{本文工作}
 
 
-文本工作主要是探讨当前数据立方计算的研究现状，优化现有的基于 MapReduce 的 数据立方实现方案，主要是针对Raghu Ramakrishnan 团队提出的 MR-Cube 方案 \cite{nandi2012data} \cite{nandi2011distributed}，分析其优缺点，针对MR-Cube的不足以及可改进的地方，借鉴\cite{tao2013minimal} 中将TeraSort 与 GroupBy 结合的方法 以及 将 MapReduce 与 Pipesort 结合，提出了TSP-Cube 计算方法。TSP-Cube 使用 Tera Sort 的思想提出更具有通用性的对倾斜数据的划分方法；并且使用 Pipesort 替代 BUC 方法实现基于 MapReduce 的数据立方，从而更充分利用MapReduce框架的特性。同时，还针对层次型的数据集以及结合Pipesort的特征，提出Pipeline的生成方案。最后根据实验结果总结出两种不同类型的度量函数适用的计算方法， 从而为后续的MapReduce 与数据立方计算的优化实现提供研究经验支持。
+本文工作主要是探讨当前数据立方计算的研究现状，优化现有的基于 MapReduce 的 数据立方实现方案，主要是针对Raghu Ramakrishnan 团队提出的 MR-Cube 方案 \cite{nandi2012data} \cite{nandi2011distributed}，分析其优缺点，针对MR-Cube的不足以及可改进的地方，借鉴\cite{tao2013minimal} 中将TeraSort 与 GroupBy 结合的方法 以及 将 MapReduce 与 Pipesort 结合，提出了TSP-Cube 计算方法。TSP-Cube 使用 Tera Sort 的思想提出更具有通用性的对倾斜数据的划分方法；并且使用 Pipesort 替代 BUC 方法实现基于 MapReduce 的数据立方，从而更充分利用MapReduce框架的特性。同时，还针对层次型的数据集以及结合Pipesort的特征，提出Pipeline的生成方案。最后根据实验结果总结出两种不同类型的度量函数适用的计算方法， 从而为后续的MapReduce 与数据立方计算的优化实现提供研究经验支持。
 
 
 本文的内容安排如下，第2章介绍与数据立方相关的基础知识，第3章探讨当前数据立方计算的研究现状，第4章具体地分析MR-Cube的的贡献以及不足，第5章提出TSP-Cube方法，并对其进行详细的理论分析，第6章阐述实验结果与结果分析，第7章为总结与展望。

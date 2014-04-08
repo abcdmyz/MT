@@ -1,6 +1,6 @@
 \chapter{TSP-Cube 算法}
 
-针对 MR-Cube 的不足，本文提出了 TSP-Cube 数据立方计算方法。TSP-Cube 借鉴了 \cite{tao2013minimal} 中将 TeraSort 与 GroupBy的结合，将TeraSort 的思想用于数据立方计算中数据的划分。同时，根据层次型数据集的特征，提出使用Pipesort 替换BUC算法，充分利用MapReduce框架的特性，计算同一个reduce函数内多个group的聚集。
+针对 MR-Cube 的不足，本文提出了 TSP-Cube 数据立方计算方法。TSP-Cube 借鉴了 \cite{tao2013minimal} 中将 TeraSort 与 GroupBy的结合，将TeraSort 的思想用于数据立方计算中数据的划分。同时，提出使用Pipesort 替换BUC算法，充分利用MapReduce框架的特性，计算同一个reduce函数内多个group的聚集。并且针对层次型数据集的特征，提出更为简单有效的Pipeline生成方案。
 
 
 \section{TeraSort与GroupBy}
@@ -31,7 +31,7 @@
 
 借鉴 TeraSort与GroupBy结合的方法，并且针对MR-Cube的一些不足，本文提出了TSP-Cube。TSP-Cube 将 TeraSort、Pipesort 与分布式数据立方结合，从数据划分和合并计算这两个方面一同提高数据立方的计算效率。
 
-TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Batch Area；同时对它存在的缺点进行了改进。TSP-Cube使用 TeraSort 的思想，利用分界点确定要划分的group，从而改进了 MR-Cube 中由于一个region内有大group，而对region内所有group都进行划分的方法，避免了对小 group 的不必要的划分。TSP-Cube 使用分界点对大group进行划分，与MR-Cube中使用求余的方式相比，数据划分更均匀。同时，TSP-Cube 使用PipeSort 替换了了MR-Cube 中的BUC，充分利用了 MapReduce 框架的特性，并且针对层次型的数据集，提出了一个更简单有效地形成 Pipeline 的方法。
+TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Batch Area；同时对它存在的缺点进行了改进。TSP-Cube使用 TeraSort 的思想，利用分界点确定要划分的group，从而改进了 MR-Cube 中由于一个region内有大group，而对region内所有group都进行划分的方法，避免了对小 group 的不必要的划分。TSP-Cube 使用分界点对大group进行划分，与MR-Cube中使用取模的方式相比，数据划分更均匀。同时，TSP-Cube 使用PipeSort 替换了了MR-Cube 中的BUC，充分利用了 MapReduce 框架的特性，并且针对层次型的数据集，提出了一个更简单有效地形成 Pipeline 的方法。
 
 \subsection{TeraSort与分布式数据立方}
 
@@ -79,7 +79,7 @@ TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Ba
 
 TSP-Cube之所以能令划分点较为精准地落在需要划分的group上，是因为需要划分的group都是大group，group越大，样本中出现的频率就越高，而分界点是均匀选取的，那么分界点就有很大的概率落在大group上，从而划分大的group。若样本中有较多的大group，分界点一般会落在这些较大的 group 上。对于不落在大 group 上的分界点，则可能落在两个小的 group 之间或者落在小group上。但因为 group 越小，采样中该 group中的数据 出现的频率也越少，那么分界点落在这些小 group 上的概率也就相对较小了。按照上述分析，大部分的分界点都会落在大group上，只有少数的分界点会落在小group上或小group之间。TSP-Cube虽然使用较少的分界点，但依然保证了大group的划分和各个reducer上数据的均匀性，并且避免了 MR-Cube 中出现的不必要的划分。
 
-在 MR-Cube 中使用求余的方式对数据进行划分，求余是简单有效的哈希函数，但在一些极端情况下，原数据有倾斜性，导致划分后的数据可能依然有倾斜性。例如使用 MR-Cube 的方法计算的划分因子的结果是2，也就是令度量属性值对2求余从而达到数据划分的效果，若需要划分的属性值大部分都是奇数，这样将导致数据划分的失效，数据划分后依然是不均匀的。而使用 TSP-Cube 的方法则可以避免这种情况。因为 TSP-Cube 对数据的划分是基于样本出现的顺序和频率的，即使所有的度量属性值都是奇数，TSP-Cube 依然可以较为均匀地划分数据。
+TSP-Cube使用TeraSort思想解决不必要的数据划分的同时，也解决了MR-Cube中使用取模方法对数据划分可能带来的不均匀性问题。取模是简单有效的哈希函数，但在一些极端情况下，原数据有倾斜性，导致划分后的数据可能依然有倾斜性。例如使用 MR-Cube 的方法计算的划分因子的结果是2，也就是令度量属性值对2取模从而达到数据划分的效果，若需要划分的属性值大部分都是奇数，这样将导致数据划分的失效，数据划分后依然是不均匀的。而使用 TSP-Cube 的方法则可以避免这种情况。因为 TSP-Cube 对数据的划分是基于样本出现的顺序和频率的，即使所有的度量属性值都是奇数，TSP-Cube 依然可以较为均匀地划分数据。
 
 
 %\subsection{数据立方的计算}
@@ -98,7 +98,9 @@ TSP-Cube之所以能令划分点较为精准地落在需要划分的group上，�
 
 \subsection{PipeSort 与分布式数据立方}
 
-上一节中主要阐述了数据的划分，在这一节中将详细阐述如何使用 pipesort 将多个 group 放在同一个 reduce 函数里计算，也就是减少数据立方计算过程中，中间数据的产生。 MR-Cube 提出了 Batch Area 的概念和一些划分 Batch Area 建议遵循的规则，但是并没有给出简单且具体的划分方法。同时 MR-Cube 中使用的是 BUC 对Batch 内的 group 进行计算，但其实这种方法并没有充分利用 MapReduce 框架的特性与优势。因此 TSP-Cube 针对这两点进行改进，TSP-Cube 提出使用 Pipesort 替代 BUC 进行多个group之间的计算，从而与MapReduce有更好的结合；并且特别针对层次型的数据集，提出了简单且有效的划分方法，该方法与 pipesort 有非常好的整合。
+上一节中主要阐述了数据的划分，在这一节中将详细阐述如何使用 pipesort 将多个 group 放在同一个 reduce 函数里计算，也就是减少数据立方计算过程中，中间数据的产生。 
+
+MR-Cube 提出了 Batch Area 的概念和一些划分 Batch Area 建议遵循的规则，但是并没有给出简单且具体的划分方法。同时 MR-Cube 中使用的是 BUC 对Batch 内的 group 进行计算，但其实这种方法并没有充分利用 MapReduce 框架的特性与优势。因此 TSP-Cube 针对这两点进行改进，TSP-Cube 提出使用 Pipesort 替代 BUC 进行多个group之间的计算，从而与MapReduce有更好的结合；并且特别针对层次型的数据集，提出了简单且有效的划分方法，该方法与 Pipesort 有非常好的整合。
 
 PipeSort\cite{agarwal1996computation} 是 1996 年由 Agarwal 等人提出的一种计算数据立方的方法。Pipe 指的是 Pipeline，即流水线。它是一种自顶向下的计算数据立方的方法。它利用数据的有序性以及多个 group 之间具有共同前缀的特性，对数据只扫描一遍并且使用极少的内存即可计算多个 group 的聚合。
 
@@ -109,32 +111,37 @@ PipeSort\cite{agarwal1996computation} 是 1996 年由 Agarwal 等人提出的一
 \caption{4维数据立方的划分}\label{pipesort} 
 \end{figure} 
 
-正是因为 pipesort 的有序性以及一次性扫描的特点，它更适合应用于 MapReduce 的框架下。因为 MapReduce 默认对数据进行排序，无论用户是否需要，它都会对数据进行排序。用户还可以根据需要重载函数，自行定义排序时的比较函数。因此不需要在reduce函数中额外地再对数据进行排序。其次，reducer 中提供的迭代器仅能够对数据扫描一次，若需要对数据进行多次扫描，则需要先将数据载入内存中。而 BUC 的算法正是需要对数据进行多次扫描，相反，Pipesort 仅需要对数据扫描一次即可，不需要过多额外的内存。BUC 更适合使用的场景是有条件限制的聚合操作，例如 HAVING。而对于无条件限制的情况下，Pipesort 比 BUC更适合在 MapReduce 中使用。
+正是因为 Pipesort 的有序性以及一次性扫描的特点，它更适合应用于 MapReduce 的框架。因为 MapReduce 默认对数据进行排序，无论用户是否需要，它都会对数据进行排序。用户还可以根据需要重载函数，自行定义排序时的比较函数。因此不需要在reduce函数中额外地再对数据进行排序。其次，reducer 中提供的迭代器仅能够对数据扫描一次，若需要对数据进行多次扫描，则需要先将数据载入内存中。而 BUC 算法由于递归计算，需要对同一组数据进行多次扫描，相反，Pipesort 仅需要对数据扫描一次即可，不需要过多额外的内存。BUC 更适合使用的场景是有条件限制的聚合操作，例如 HAVING。而对于无条件限制的情况下，Pipesort 比 BUC更适合在 MapReduce 中使用。
 
-在 \cite{agarwal1996computation} 中，pipeline 方案是通过二分图匹配的方式得到。二分图匹配的方式是可以得到一个最优解，但它需要首先对数据采样从而估算各个 region 的大小，再使用二分图匹配的方法一层层地计算 pipeline 的方案。若在单机版且内存不足的情况下，这样的方案是非常有效的。但是当前论文研究的环境是分布式，计算资源和内存都是相对较充足的，并且结合上一节提到的数据划分方法，pipeline 方案的形成可以更简单。
+Pipeline的形成有多种方法，在 \cite{agarwal1996computation} 中，pipeline 方案是通过二分图匹配的方式得到。二分图匹配的方式可以得到一个最优解，但它需要首先对数据采样从而估算各个 region 的大小，再使用二分图匹配的方法一层层地计算 pipeline 的方案。若在单机版且内存不足的情况下，这样的方案是非常有效的。但是当前论文研究的环境是分布式，计算资源和内存都是相对较充足的，并且结合上一节提到的数据划分方法，pipeline 方案的形成可以更简单。
 
-在\cite{wang2013scalable} 中提出了使用随机贪心的方式形成 pipeline 方案。将所有的 region 都放入一个集合内，每次从集合中选择维度数量最多的一个 region。对region内的维度进行组合，对于每个组合都可以得到一种 pipeline 方案。选择一种pipeline方案，其包含的 region 在集合中数量最多，并且把该pipeline 中的region都从集合中移除。然后继续从集合中选择维度数量最多的region至集合为空。
+在\cite{wang2013scalable} 中提出了在MapReduce环境下使用随机贪心的方式形成 pipeline 方案。将所有的 region 都放入一个集合内，每次从集合中选择维度数量最多的一个 region。对region内的维度进行组合，对于每个组合都可以得到一种 pipeline 方案。选择一种pipeline方案，其包含的 region 在集合中数量最多，并且把该pipeline 中的region都从集合中移除。然后继续从集合中选择维度数量最多的region至集合为空。
 
 例如对于 4 维的数据，维属性为ABCD。则在一开始选择维度数量最多的 region，ABCD，它有多种组合，例如ACBD，ADBC等等，对于组合ABCD，可得到pipeline $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$。这个pipeline中所有的region都在集合中，因此这个pipeline可选，并且把ABCD，ABC，AB，A这4个region从集合中移除。接着继续从集合中选择 region，假设选择了ACD，它有多种组合，例如ADC，CDA。对于ADC这个组合的pipeline是  $ADC\rightarrow AD\rightarrow A$，其中region A已经不在集合中，因此只有2个region在集合中。而对于CDA这个组合的pipeline是  $DCA\rightarrow DC\rightarrow D$，3个region都在集合中，因此选择 CDA 这个组合以及对应的pipeline。以此往下直到集合为空。图\ref{pipesort} 是其中一种 pipesort 方案。
 
 上述的方法比起二分图匹配更简单，虽然pipeline的方案不一定是最优的，并且pipeline之间的长度有一定的差距，但是由于计算资源与内存的充足，可以弥补以上两点不足。并且将这种方法与上一节中的数据划分结合，一些大的group必然会被划分，就可令各个reducer的计算量相对均匀。
 
-但以上的方法若用于层次型的数据，pipeline之间长度差别过大的问题则尤为明显，尤其是在层次型较深或者各个层次数量差别过大的情况，因此这里针对层次型的数据数据集对生成 pipeline 的方法进行改进，该方法可解决pipeline之间长度差别过大的问题，并且同样简单有效。以下继续沿用图 \ref{dataset_table1} 作为数据集进行说明。该数据集的 lattice 如图\ref{dataset_lattice1} 所示。
+但上述随机贪心的方法若用于层次型的数据，pipeline之间长度差别过大的问题则尤为明显，尤其是在层次型较深或者各个层次数量差别过大的情况下。因为随机贪心方法生成的第一条pipeline的起始region通常涵盖了所有的属性，在层次型数据中，这样的一条pipeline会非常长，与其他的pipeline长度差距较大，导致各个pipeline之间中间数据量差距变大，影响计算的负载均衡。
 
+如对 图\ref{dataset_table1} 的数据集使用随机贪心算法生成pipeline方案，生成的pipeline如图 \ref{greedy_pipeline} 所示。在该数据集中，共有6个维属性，分别为 country, state, city, topic, category, subcategory。其中 [country, state, city] [topic, category, subcategory] 是分别具有层次型的。图\ref{greedy_pipeline} 中使用红色曲线划分各个pipeline。从图中可看出各个pipeline的长度差别较大。
 
 \begin{figure}[!htb]
 \centering\includegraphics[width=3.5in]{picture/ch_datacube_mr/dataset_table} 
 \caption{层次型数据集的表结构}\label{dataset_table1} 
 \end{figure} 
 
-\begin{figure}[!htb]
-\centering\includegraphics[width=3in]{picture/ch_datacube_mr/dataset_lattice} 
-\caption{层次型数据集的lattice}\label{dataset_lattice1} 
-\end{figure} 
+因此这里针对层次型的数据数据集对生成 pipeline 的方法进行改进，该方法可解决pipeline之间长度差别过大的问题，并且同样简单有效。
 
-在该数据集中，共有6个维属性，分别为 country, state, city, topic, category, subcategory。其中 [country, state, city] [topic, category, subcategory] 是分别具有层次型的。将这6个属性从0开始编号，如表\ref{attribute_no}所示。
+%以下继续沿用图 \ref{dataset_table1} 作为数据集进行说明。该数据集的 lattice 如图\ref{dataset_lattice1} 所示。
 
-\begin{table}[!ht]
+%\begin{figure}[!htb]
+%\centering\includegraphics[width=3in]{picture/ch_datacube_mr/dataset_lattice} 
+%\caption{层次型数据集的lattice}\label{dataset_lattice1} 
+%\end{figure} 
+
+在图\ref{dataset_table1}的数据集中，共有6个维属性，将这6个属性从0开始编号，如表\ref{attribute_no}所示。
+
+\begin{table}[!htb]
 \begin{center}
 \begin{tabular}{|c|c|c|c|c|c|}
 \hline 
@@ -149,14 +156,31 @@ Country & State & City & Topic & Category & Subcategory \\
 
 对属性编号后，lattice 中的各个 region 可用编号组成的字符串表示。如 region \textless state, category\textgreater 可用字符串 ``0 1 * 3 4 *" 表示。又如 region \textless country, subcategory\textgreater 可用字符串 ``0 * * 3 4 5"表示。即对于要进行 GroupBy 的维属性在字符串中以编号出现，其他维属性则以 * 出现。由于数据集具有层次型，因此不可忽略该属性的前置属性。即 GroupBy(city) 时，默认等于 GroupBy(country, state, city)，因此字符串中要出现 country 与 state。图 \ref{sorted_region}(a) 是将 lattcie 转化成字符串并按字典顺序排序后的结果。对字符串排序后的结果发现这样的顺序正好有 Pipesort 的特性。每4个字符串就刚好构成一个pipeline。图\ref{sorted_region}(b)中每个红色方框表示一个pipeline。
 
-\begin{figure}[!ht] 
-\centering\includegraphics[width=2in]{picture/ch_terasort_mr/sorted_region} 
+\begin{figure}[!h] 
+\centering\includegraphics[width=1.9in]{picture/ch_terasort_mr/sorted_region} 
 \caption{按字符串顺序排序的Region}\label{sorted_region} 
 \end{figure}
 
 这样的一种将region转化成字符串再排序的方法，对于层次型的数据集非常适用，因为它们具有层次型特征，在对字符串排序后，根据排序结果能直接形成 pipeline 。由于数据集的层次是既定的，因此形成的每个 pipeline 之间的 region 的数量基本是相等的，这样每个 reducer 要计算的 region 也是相对平均的。
 
-因此这里建议，对于非层次型的数据集可使用 \cite{wang2013scalable} 中的方法形成 pipeline 方案，而对于层次型的数据集则使用region转换成字符串排序后形成的pipeline 方案。
+因此这里建议，对于非层次型的数据集可使用 \cite{wang2013scalable} 中的方法形成 pipeline 方案，而对于层次型的数据集则使用region转换成字符串排序后形成的pipeline 方案。图\ref{greedy_pipeline} 和 图\ref{sort_pipeline} 分别为使用随机贪心和字符串排序生成的pipeline方案，图中使用红线划分了各个pipeline。从图中可看出，使用字符串排序生成的pipeline，各个pipeline的长度是相等的，更为均匀。
+
+
+\begin{figure}[!htb]
+\begin{tabular}{cc}
+
+\begin{minipage}[t]{0.5\textwidth}
+\centering\includegraphics[width=3in]{picture/ch_terasort_mr/greedy_pipeline} 
+\caption{随机贪心生成的pipeline}\label{greedy_pipeline} 
+\end{minipage}
+
+\begin{minipage}[t]{0.5\textwidth}
+\centering\includegraphics[width=3in]{picture/ch_terasort_mr/sort_pipeline} 
+\caption{字符串排序生成的pipeline}\label{sort_pipeline} 
+\end{minipage}
+
+\end{tabular}
+\end{figure}
 
 pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。由于MapReduce的分布式特性，它能并行处理多条pipeline，也就是每个reduce函数都处理与一条pipeline相关的数据。下面以 $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$ 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分析使用Pipesort计算数据立方时 mapper 的输出，因为mapper的输出决定了各个reduce函数接收的数据。在e1 记录中，a0，b0，c0，d0分别对应属性A，B，C，D，它们是维属性，无层次型关系。m0对应的属性M为度量属性。以下暂不考虑数据的划分。
 
@@ -197,7 +221,7 @@ TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1
 
 
 {\renewcommand\baselinestretch{1} 
-\begin{algorithm}[ht]
+\begin{algorithm}[!htb]
 \caption{TSP-Cube Estimate Algorithm}
 \label{tscube_mr1}
 {\fontfamily{\familydefault}\selectfont
@@ -228,7 +252,7 @@ TSP-Cube 第一轮与第二轮的 MapReduce 的伪代码如算法\ref{tscube_mr1
 
 
 
-\begin{algorithm}[ht]
+\begin{algorithm}[!htp]
 \caption{TSP-Cube Materialize Algorithm}
 \label{tscube_mr2}
 {\fontfamily{\familydefault}\selectfont

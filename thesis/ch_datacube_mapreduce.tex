@@ -6,7 +6,7 @@
 
 在接下来的章节中需要数据集作为例子，因此首先介绍作为例子的数据集，这里使用\cite{nandi2011distributed}  中的数据集。数据集的表结构如图 \ref{dataset_table4} 所示。表中数据记录的是不同地区的用户的查询记录。属性id为表的主键，记录每条记录的id；time为查询时间；uid为用户的id。表中剩余的 6 个属性为维属性，分别是 country，state，city，topic，category，subcategory。其中 country，state，city 记录地区信息，topic，category，subcategory 记录查询内容。并且\textless country, state, city\textgreater 是具有层次型的，同理\textless topic, category, subcategory\textgreater 也是具有层次性的。因此在 GroupBy 时，GroupBy(country, state, topic) 和 GroupBy(state, topic)是等价的。并且不会出现 GroupBy(country, city, topic) 这样的跨越层次的操作。
 
-该数据集对应的 lattice 如图 \ref{dataset_lattice4} 所示。图中的 ``*" 表示不需要聚合的属性。因为数据集具有层次型，因此lattice与上一章中看到的有所不同。上一章中提到，若有 D 个维属性，则 lattice 中有${2}^{D}$ 个节点，但由于这个数据集具有层次型，因此节点数有所减少。例如对于 (country, state, city) 这3个属性的 GroupBy，仅有 3 种结果，即 GroupBy(country)，GroupBy(country, state)（或 GroupBy(state)） 以及 GroupBy(country, state, city)（或 GroupBy(city)）。因此该数据集对应的lattice中共有16个region，也就是该数据集共有16种 GroupBy 类型。
+该数据集对应的 lattice 如图 \ref{dataset_lattice4} 所示。图中的 ``*" 表示不需要聚合的属性。因为数据集具有层次型，因此lattice与上一章中看到的有所不同。上一章中提到，若有 D 个维属性，则 lattice 中有${2}^{D}$ 个节点，但由于这个数据集具有层次型，因此节点数有所减少。例如对于 (country, state, city) 这3个属性的 GroupBy，仅有 3 种结果，即 GroupBy(country)，GroupBy(country, state) (或 GroupBy(state)) 以及 GroupBy(country, state, city) (或 GroupBy(city))。因此该数据集对应的lattice中共有16个region，也就是该数据集共有16种 GroupBy 类型。
 
 
 \begin{figure}[!htb]
@@ -21,7 +21,7 @@
 
 \section{Naive 算法}
 
-算法 \ref{naive_algorithm} 为使用 MapReduce 计算数据立方的 Naive 实现。例如上述的数据集共有16个 region，那么对于输入的每一条记录，将其映射成对应的所有 group，并且与度量属性的值组成 key-value 作为 mapper 的输出。相同 key 值的数据将分派到同一个 reduce 函数中，也即相同 group 值的数据被分派到同一个 reduce 函数中，再进行聚合计算。例如输入的一条记录为 (e1, 091203, u1, USA, New Youk, NYC, Shopping, Phone, Smart)，度量函数为 COUNT(DISTINCT(uid))，该度量函数是计算group内有多少不同的uid。对于这条记录，map 需要输出 16 个 ([group value], [uid]) 的key-value，分别为([*,*], [u1]), ([*,Smart], [u1]), ([USA, *], [u1])等等。之后，reducer 再对同一个 group 内的数据进行聚合计算。
+算法 \ref{naive_algorithm} 为使用 MapReduce 计算数据立方的 Naive 实现。上述的数据集共有16个 region，那么对于输入的每一条记录，将其映射成对应的所有 group，并且与度量属性的值组成 key-value 作为 mapper 的输出。相同 key 值的数据将分派到同一个 reduce 函数中，也即相同 group 值的数据被分派到同一个 reduce 函数中，再进行聚合计算。例如输入的一条记录为 (e1, 091203, u1, USA, New Youk, NYC, Shopping, Phone, Smart)，度量函数为 COUNT(DISTINCT(uid))，该度量函数是计算group内有多少不同的uid。对于这条记录，map 需要输出 16 个 ([group value], [uid]) 这样的 key-value，分别为([*,*], [u1]), ([*,Smart], [u1]), ([USA, *], [u1])等等。之后，reducer 再对同一个 group 内的数据进行聚合计算。
 
 {\renewcommand\baselinestretch{1} 
 \begin{algorithm}[!ht]
@@ -53,11 +53,11 @@ Naive的方法实现起来非常简单，对于较小的数据集也有很好的
 
 \item \textbf{中间数据过多}
 
-若 lattice 中的 region 数量为 $|C|$，数据集的大小为 $|D|$，则中间数据的数据量为 $|C|\times |D|$。随着维属性数量的增加，与层次的加深，中间数据的数据量则会巨增，必然导致 map 阶段有大量的磁盘 I/O，以及 shuffle(sort) 阶段有大量的数据需要排序，对整体的效率有非常大的影响。
+若 lattice 中的 region 数量为 $|C|$，数据集的大小为 $|D|$，则中间数据的数据量为 $|C|\times |D|$。随着维属性数量的增加与层次的加深，中间数据的数据量则会巨增，必然导致 map 阶段有大量的磁盘 I/O，以及 shuffle(sort) 阶段有大量的数据需要排序，对整体的效率有非常大的影响。
 
 \item \textbf{超大group}
 
-在 MapReduce 计算中，总体的计算时间是由计算时间最长的 reducer 决定。因此若各个 reducer 分配到的要计算的数据量差异较大时，会导致某些 reducer 运行时间远大于其他 reducer。 在 Naive 的计算方法中，具有相同 group 值的数据会在同一个 reducer 中计算，当一个 group 很大时，例如 lattice 中处于底层的 region 中的 group 相对就会较大，它运行的时间就会很长，而其他处理小 group 的 reducer 因为较早处理完数据，可能会空闲等待，甚至重新启动大 group 的计算，但重启计算效果往往并不佳，最终导致整个 MapReduce 的计算时间过长。
+在 MapReduce 计算中，总体的计算时间是由计算时间最长的 reducer 决定。因此若各个 reducer 分配到的要计算的数据量差异较大时，会导致某些 reducer 运行时间远大于其他 reducer。 在 Naive 的计算方法中，具有相同 group 值的数据会在同一个 reducer 中计算，当一个 group 很大时，例如 lattice 中处于底层的 region 中的 group 相对就会较大，它运行的时间就会很长，而其他处理小 group 的 reducer 因为较早处理完数据，可能会空闲等待，甚至重新启动大 group 的计算，但重启计算效果往往不佳，最终导致整个 MapReduce 的计算时间过长。
 
 \end{itemize}
 
@@ -87,7 +87,7 @@ Naive的方法实现起来非常简单，对于较小的数据集也有很好的
 \caption{根据uid被划分的lattice}\label{region_partition} 
 \end{figure} 
 
-上述的方法只记录需要划分的region，这是因为 region 的数量远比 group 少得多。若要记录所有的需要划分的 group，则需要太大的开销。只记录region的方法能保证大 group 的划分，但是如果 region 中只有 1 个 group 是 unfriendly 的，其他的friendly 的 小group 也要被迫划分，这样将导致不必要的划分以及出现过多的被划分数据，加重了最后的合并操作。同时，论文中使用了取模的方式进行划分，这样的哈希方式非常简单，在很多情况下也是有效的，但是在一些情况下，也可能导致划分的不均匀。就这两点不足，这样的划分方式仍有可改进的空间。
+上述的方法只记录需要划分的region，这是因为 region 的数量远比 group 少得多。若要记录所有的需要划分的 group，则需要太大的开销。只记录region的方法能保证大 group 的划分，但是如果 region 中只有 1 个 group 是 unfriendly 的，其他的friendly 的 小group 也要被迫划分，这样将导致不必要的划分以及出现过多的被划分数据，加重了最后的合并操作。同时，论文中使用了取模的方式进行划分，这样的哈希方式非常简单，在很多情况下也是有效的，但是在一些情况下，很可能导致划分的不均匀。就这两点不足，这样的划分方式仍有可改进的空间。
 
 \subsection{Batch Area}
 
@@ -106,7 +106,7 @@ Naive的方法实现起来非常简单，对于较小的数据集也有很好的
 \caption{Batch Area}\label{batch_area} 
 \end{figure}
 
-对于同一个 batch 内的 group 要如何计算有很多方法，论文使用的是BUC，(bottom up cubing algorithm)。但这种方法需要对数据扫描多次，而 Mapreduce 的 reducer 中提供的迭代器仅能对数据扫描一次，若要对数据进行多次扫描，则需要载入内存中。并且 BUC 这种方法也未充分利用 Mapreduce 框架的特性，例如排序功能。因此这里可以考虑替换其他的方法。同时，论文中只给出了batch 划分的规则，提到可用枚举、局部贪心或者模拟退火的方式找出合乎规则的划分，并没有给出具体的方法，而模拟退火这样的计算方法又稍微复杂。因此这里可以考虑提出简单而有效的划分方法。
+对于同一个 batch 内的 group 要如何计算有很多方法，论文使用的是BUC，(Bottom Up Cube)。但这种方法需要对同一组数据扫描多次，而 Mapreduce 的 reducer 中提供的迭代器仅能对数据扫描一次，若要对数据进行多次扫描，则需要先载入内存，这样将导致过多的内存开销。同时，论文中只给出了batch 划分的规则，提到可用枚举、局部贪心或者模拟退火的方式找出合乎规则的划分，并没有给出具体的方法，而模拟退火这样的计算方法又稍微复杂。因此这里可以考虑提出简单而有效的划分方法。
 
 
 \section{贡献与不足}
@@ -116,19 +116,19 @@ MR-Cube \cite{nandi2011distributed} 这篇论文对使用 Naive 算法计算整�
 \begin{enumerate}
 \item 提出了对整体性度量划分的方法。
 \item 提出了如何判断 group 是否需要划分，以及其划分的方法。
-\item 提出了将多个 group 合并一起计算的 batch area 的概念。
+\item 提出了将多个 group 合并计算的 batch area 的概念。
 \end{enumerate}
 
 但是以上的方法也存在一些问题。
 
 \begin{enumerate}
 \item 论文中通过 region 内的一个大 group 将一个 region 内的所有 group 都贴上 reducer-unfriendly 的标签，导致 region 内所有的 group 都要划分。有些情况下可能一个 region 就只有一个大 group，而其他的 group 都很小，这样就导致了不必要的划分和加重后续的合并操作。
-\item 论文中使用取模(\%)方法对数据进行划分，取模是一种简单有效哈希方法，但是这种哈希方法在一些情况下，可能会导致划分的不均匀。
-\item Batch area 的计算，也就是多个 group 之间的计算，论文里使用了 BUC 的方法，虽然这种方法很合适有阈值限定的情况（例如 HAVING），但是它需要对数据进行多次扫描，并且没有很好地利用 Mapreduce 本身的一些优势，例如排序。
+\item 论文中使用取模(\%)方法对数据进行划分，取模是一种简单有效的哈希方法，但是这种哈希方法在一些情况下，可能会导致划分的不均匀。
+\item Batch area 的计算，也就是多个 group 之间的计算，论文里使用了 BUC 的方法，虽然这种方法很合适有阈值限定的情况（例如 HAVING），但是它需要对同一组数据进行多次扫描，而MapReduce中reducer的迭代器仅能对数据扫描一次，若要多次扫描则需将数据载入内存或者读写文件，这将导致过多的内存和I/O开销。
 \item 论文中只给出了 batch area 的规则，并没有提供简单且能满足规则的划分方法。
 \end{enumerate}
 
-针对以上4点，本论文提出了 TSP-Cube，将Tera-Sort、Pipesort 与数据立方的计算相结合，从而改进 MR-Cube 的不足。
+针对以上4点，本论文提出了 TSP-Cube，将Tera-Sort、PipeSort 与数据立方的计算相结合，从而改进 MR-Cube 的不足。
 
 
 

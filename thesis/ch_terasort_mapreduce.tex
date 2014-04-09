@@ -29,9 +29,9 @@
 
 \section{TSP-Cube}
 
-借鉴 TeraSort与GroupBy结合的方法，并且针对MR-Cube的一些不足，本文提出了TSP-Cube。TSP-Cube 将 TeraSort、Pipesort 与分布式数据立方结合，从数据划分和合并计算这两个方面一同提高数据立方的计算效率。
+借鉴 TeraSort与GroupBy结合的方法，并且针对MR-Cube的一些不足，本文提出了TSP-Cube。TSP-Cube 将 TeraSort、PipeSort 与分布式数据立方结合，从数据划分和合并计算这两个方面一同提高数据立方的计算效率。
 
-TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Batch Area；同时对它存在的缺点进行了改进。TSP-Cube使用 TeraSort 的思想，利用分界点确定要划分的group，从而改进了 MR-Cube 中由于一个region内有大group，而对region内所有group都进行划分的方法，避免了对小 group 的不必要的划分。TSP-Cube 使用分界点对大group进行划分，与MR-Cube中使用取模的方式相比，数据划分更均匀。同时，TSP-Cube 使用PipeSort 替换了了MR-Cube 中的BUC，充分利用了 MapReduce 框架的特性，并且针对层次型的数据集，提出了一个更简单有效地形成 Pipeline 的方法。
+TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Batch Area，同时对它存在的缺点进行了改进。TSP-Cube使用 TeraSort 的思想，利用分界点确定要划分的group，从而改进了 MR-Cube 中由于一个region内有大group，而对region内所有group都进行划分的方法，避免了对小 group 的不必要的划分。TSP-Cube 使用分界点对大group进行划分，与MR-Cube中使用取模的方式相比，数据划分更均匀。同时，TSP-Cube 使用PipeSort 替换了了MR-Cube 中的BUC，充分利用了 MapReduce 框架的特性，并且针对层次型的数据集，提出了一个更简单有效地形成 Pipeline 的方法。
 
 \subsection{TeraSort与分布式数据立方}
 
@@ -48,7 +48,7 @@ TSP-Cube 借鉴了 MR-Cube 的一些思路，例如整体性度量的划分、Ba
 
 采样的key值非常重要，因为它关系到分界点的选取、group的划分以及第二轮 MapReduce 计算时 reducer 中数据的均匀性。在 GroupBy 的场景下，采样的 key 是 [group\_value, tuple\_id] 这样的复合键，在数据立方的计算中，由于计算的不仅仅是一个 region，因此采样的 key 更为复杂。并且\cite{tao2013minimal} 中讨论的度量函数仅是 SUM，而这里还需要考虑到整体性度量函数。
 
-首先考虑region的因素。TSP-Cube的采样是为了了解原数据中各个region中各个group的大小，因此样本的key值的出现频率必须能反应group的大小，所以key值必须包含region和group的信息。因此选择region\_id 和group\_value 组成复合键作为key值。将各个 region 转化成字符串并且排序，然后对它们编号，即可得到 region\_id。这样使用[region\_id, group\_value] 复合键即可表示一个指定 region 内指定的 group。但仅用这两个值对于大的group是无法划分的。因为若两个分界点落在同一个region的同一个group内，这两个分界点的值是相同的，因此这里需要加入更多的信息。这个信息与度量函数有关。
+首先考虑region的因素。TSP-Cube的采样是为了了解原数据中各个region中各个group的大小，因此样本的key值的出现频率必须要反应group的大小，所以key值必须包含region和group的信息。因此选择region\_id 和group\_value 组成复合键作为key值。将各个 region 转化成字符串并且排序，然后对它们编号，即可得到 region\_id。这样使用[region\_id, group\_value] 复合键即可表示一个指定 region 内指定的 group。但仅用这两个值对于大的group是无法划分的。因为若两个分界点落在同一个region的同一个group内，这两个分界点的值是相同的，因此这里需要加入更多的信息。这个信息与度量函数有关。
 
 对于代数度量，由于数据划分不受限制，因此数据不需要按照某个特定的属性进行划分。所以这里参考\cite{tao2013minimal}，选择 tuple\_id 作为 key 值的一部分。tuple\_id 一般是数据的主键，主键是无重复的。这种情况下，一个 group 内若有多个分界点，分界点的值也是不同的。因此，对于代数度量函数，采样时的key值为 [region\_id, group\_value, tuple\_id]。但其实对于代数度量，使用 TeraSort 计算数据立方会碰到与 GroupBy 类似的问题，由于 MapReduce combiner 的作用，对于mapper的输出可在本地进行一次reduce计算，令同一个group内的数据被压缩成一条记录输出，因此reducer接收到的数据量是有限的。所以即使是计算较大的数据集，也不会出现 reducer 之间数据不均匀的情况。这一点在之后的实验中也充分地说明了。因此 TSP-Cube 着重解决整体性度量函数的问题。
 
@@ -98,9 +98,9 @@ TSP-Cube使用TeraSort思想解决不必要的数据划分的同时，也解决�
 
 \subsection{PipeSort 与分布式数据立方}
 
-上一节中主要阐述了数据的划分，在这一节中将详细阐述如何使用 pipesort 将多个 group 放在同一个 reduce 函数里计算，也就是减少数据立方计算过程中，中间数据的产生。 
+上一节中主要阐述了数据的划分，在这一节中将详细阐述如何使用 PipeSort 将多个 group 放在同一个 reduce 函数里计算，也就是减少数据立方计算过程中，中间数据的产生。 
 
-MR-Cube 提出了 Batch Area 的概念和一些划分 Batch Area 建议遵循的规则，但是并没有给出简单且具体的划分方法。同时 MR-Cube 中使用的是 BUC 对Batch 内的 group 进行计算，但其实这种方法并没有充分利用 MapReduce 框架的特性与优势。因此 TSP-Cube 针对这两点进行改进，TSP-Cube 提出使用 Pipesort 替代 BUC 进行多个group之间的计算，从而与MapReduce有更好的结合；并且特别针对层次型的数据集，提出了简单且有效的划分方法，该方法与 Pipesort 有非常好的整合。
+MR-Cube 提出了 Batch Area 的概念和一些划分 Batch Area 建议遵循的规则，但是并没有给出简单且具体的划分方法。同时 MR-Cube 中使用的是 BUC 对Batch 内的 group 进行计算，但其实这种方法并没有充分利用 MapReduce 框架的特性与优势。因此 TSP-Cube 针对这两点进行改进，TSP-Cube 提出使用 PipeSort 替代 BUC 进行多个group之间的计算，从而与MapReduce有更好的结合；并且特别针对层次型的数据集，提出了简单且有效的划分方法，该方法与 PipeSort 有非常好的整合。
 
 PipeSort\cite{agarwal1996computation} 是 1996 年由 Agarwal 等人提出的一种计算数据立方的方法。Pipe 指的是 Pipeline，即流水线。它是一种自顶向下的计算数据立方的方法。它利用数据的有序性以及多个 group 之间具有共同前缀的特性，对数据只扫描一遍并且使用极少的内存即可计算多个 group 的聚合。
 
@@ -111,13 +111,13 @@ PipeSort\cite{agarwal1996computation} 是 1996 年由 Agarwal 等人提出的一
 \caption{4维数据立方的划分}\label{pipesort} 
 \end{figure} 
 
-正是因为 Pipesort 的有序性以及一次性扫描的特点，它更适合应用于 MapReduce 的框架。因为 MapReduce 默认对数据进行排序，无论用户是否需要，它都会对数据进行排序。用户还可以根据需要重载函数，自行定义排序时的比较函数。因此不需要在reduce函数中额外地再对数据进行排序。其次，reducer 中提供的迭代器仅能够对数据扫描一次，若需要对数据进行多次扫描，则需要先将数据载入内存中。而 BUC 算法由于递归计算，需要对同一组数据进行多次扫描，相反，Pipesort 仅需要对数据扫描一次即可，不需要过多额外的内存。BUC 更适合使用的场景是有条件限制的聚合操作，例如 HAVING。而对于无条件限制的情况下，Pipesort 比 BUC更适合在 MapReduce 中使用。
+正是因为 PipeSort 的有序性以及一次性扫描的特点，它更适合应用于 MapReduce 的框架。因为 MapReduce 默认对数据进行排序，无论用户是否需要，它都会对数据进行排序。用户还可以根据需要重载函数，自行定义排序时的比较函数。因此不需要在reduce函数中额外地再对数据进行排序。其次，reducer 中提供的迭代器仅能够对数据扫描一次，若需要对数据进行多次扫描，则需要先将数据载入内存中。而 BUC 算法由于递归计算，需要对同一组数据进行多次扫描，相反，PipeSort 仅需要对数据扫描一次即可，不需要过多额外的内存。BUC 更适合使用的场景是有条件限制的聚合操作，例如 HAVING。而对于无条件限制的情况下，PipeSort 比 BUC更适合在 MapReduce 中使用。
 
-Pipeline的形成有多种方法，在 \cite{agarwal1996computation} 中，pipeline 方案是通过二分图匹配的方式得到。二分图匹配的方式可以得到一个最优解，但它需要首先对数据采样从而估算各个 region 的大小，再使用二分图匹配的方法一层层地计算 pipeline 的方案。若在单机版且内存不足的情况下，这样的方案是非常有效的。但是当前论文研究的环境是分布式，计算资源和内存都是相对较充足的，并且结合上一节提到的数据划分方法，pipeline 方案的形成可以更简单。
+Pipeline的形成方案有多种方法，在 \cite{agarwal1996computation} 中，pipeline 方案是通过二分图匹配的方式得到。二分图匹配的方式可以得到一个最优解，但它需要首先对数据采样从而估算各个 region 的大小，再使用二分图匹配的方法一层层地计算 pipeline 的方案。若在单机版且内存不足的情况下，这样的方案是非常有效的。但是当前论文研究的环境是分布式，计算资源和内存都是相对较充足的，并且结合上一节提到的数据划分方法，pipeline 方案的形成可以更简单。
 
 在\cite{wang2013scalable} 中提出了在MapReduce环境下使用随机贪心的方式形成 pipeline 方案。将所有的 region 都放入一个集合内，每次从集合中选择维度数量最多的一个 region。对region内的维度进行组合，对于每个组合都可以得到一种 pipeline 方案。选择一种pipeline方案，其包含的 region 在集合中数量最多，并且把该pipeline 中的region都从集合中移除。然后继续从集合中选择维度数量最多的region至集合为空。
 
-例如对于 4 维的数据，维属性为ABCD。则在一开始选择维度数量最多的 region，ABCD，它有多种组合，例如ACBD，ADBC等等，对于组合ABCD，可得到pipeline $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$。这个pipeline中所有的region都在集合中，因此这个pipeline可选，并且把ABCD，ABC，AB，A这4个region从集合中移除。接着继续从集合中选择 region，假设选择了ACD，它有多种组合，例如ADC，CDA。对于ADC这个组合的pipeline是  $ADC\rightarrow AD\rightarrow A$，其中region A已经不在集合中，因此只有2个region在集合中。而对于CDA这个组合的pipeline是  $DCA\rightarrow DC\rightarrow D$，3个region都在集合中，因此选择 CDA 这个组合以及对应的pipeline。以此往下直到集合为空。图\ref{pipesort} 是其中一种 pipesort 方案。
+例如对于 4 维的数据，维属性为ABCD。则在一开始选择维度数量最多的 region，ABCD，它有多种组合，例如ACBD，ADBC等等，对于组合ABCD，可得到pipeline $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$。这个pipeline中所有的region都在集合中，因此这个pipeline可选，并且把ABCD，ABC，AB，A这4个region从集合中移除。接着继续从集合中选择 region，假设选择了ACD，它有多种组合，例如ADC，CDA。对于ADC这个组合的pipeline是  $ADC\rightarrow AD\rightarrow A$，其中region A已经不在集合中，因此只有2个region在集合中。而对于CDA这个组合的pipeline是  $DCA\rightarrow DC\rightarrow D$，3个region都在集合中，因此选择 CDA 这个组合以及对应的pipeline。以此往下直到集合为空。图\ref{pipesort} 是其中一种 pipeline 方案。
 
 上述的方法比起二分图匹配更简单，虽然pipeline的方案不一定是最优的，并且pipeline之间的长度有一定的差距，但是由于计算资源与内存的充足，可以弥补以上两点不足。并且将这种方法与上一节中的数据划分结合，一些大的group必然会被划分，就可令各个reducer的计算量相对均匀。
 
@@ -154,7 +154,7 @@ Country & State & City & Topic & Category & Subcategory \\
 \caption{数据集属性编号}\label{attribute_no}
 \end{table}
 
-对属性编号后，lattice 中的各个 region 可用编号组成的字符串表示。如 region \textless state, category\textgreater 可用字符串 ``0 1 * 3 4 *" 表示。又如 region \textless country, subcategory\textgreater 可用字符串 ``0 * * 3 4 5"表示。即对于要进行 GroupBy 的维属性在字符串中以编号出现，其他维属性则以 * 出现。由于数据集具有层次型，因此不可忽略该属性的前置属性。即 GroupBy(city) 时，默认等于 GroupBy(country, state, city)，因此字符串中要出现 country 与 state。图 \ref{sorted_region}(a) 是将 lattcie 转化成字符串并按字典顺序排序后的结果。对字符串排序后的结果发现这样的顺序正好有 Pipesort 的特性。每4个字符串就刚好构成一个pipeline。图\ref{sorted_region}(b)中每个红色方框表示一个pipeline。
+对属性编号后，lattice 中的各个 region 可用编号组成的字符串表示。如 Region(state, category) 可用字符串 ``0 1 * 3 4 *" 表示。又如 Region(country, subcategory) 可用字符串 ``0 * * 3 4 5"表示。即对于要进行 GroupBy 的维属性在字符串中以编号出现，其他维属性则以 * 出现。由于数据集具有层次型，因此不可忽略该属性的前置属性。即 GroupBy(city) 时，默认等于 GroupBy(country, state, city)，因此字符串中要出现 country 与 state。图 \ref{sorted_region}(a) 是将 lattcie 转化成字符串并按字典顺序排序后的结果。对字符串排序后的结果发现这样的顺序正好有 PipeSort 的特性。每4个字符串就刚好构成一个pipeline。图\ref{sorted_region}(b)中每个红色方框表示一个pipeline。
 
 \begin{figure}[!h] 
 \centering\includegraphics[width=1.9in]{picture/ch_terasort_mr/sorted_region} 
@@ -182,19 +182,19 @@ Country & State & City & Topic & Category & Subcategory \\
 \end{tabular}
 \end{figure}
 
-pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。由于MapReduce的分布式特性，它能并行处理多条pipeline，也就是每个reduce函数都处理与一条pipeline相关的数据。下面以 $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$ 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分析使用Pipesort计算数据立方时 mapper 的输出，因为mapper的输出决定了各个reduce函数接收的数据。在e1 记录中，a0，b0，c0，d0分别对应属性A，B，C，D，它们是维属性，无层次型关系。m0对应的属性M为度量属性。以下暂不考虑数据的划分。
+pipeline方案形成后，即可与MapReduce结合进行数据立方的计算。由于MapReduce的分布式特性，它能并行处理多条pipeline，也就是每个reduce函数都处理与一条pipeline相关的数据。下面以 $ABCD\rightarrow ABC\rightarrow AB\rightarrow A$ 这个pipeline，e1=[a0, b0, c0, d0, m0]这条记录为例，分析使用PipeSort计算数据立方时 mapper 的输出，因为mapper的输出决定了各个reduce函数接收的数据。在e1 记录中，a0，b0，c0，d0分别对应属性A，B，C，D，它们是维属性，无层次型关系。m0对应的属性M为度量属性。以下暂不考虑数据的划分。
 
-由于 Pipesort 的使用，mapper 的输出不再是映射所有的 region，而仅需要映射 每个pipeline 中的一个 region 即可。在这里 mapper 的key值选择 pipeline的末尾region 作为映射，而将剩余属性的值以及度量值放在value中。因此对于记录e1，mapper输出的key为[region\_id, a0]，value的输出为[b0, c0, d0, m0]。根据MapReduce的机制，具有相同group值的数据都会放在同一个reduce函数中计算，因此Group(A=a0)的数据都放在同一个reduce函数中计算。由于value中包含了pipeline的其他属性BCD的值，以及度量属性M的值，并且用户可重载MapReduce的函数，令value按照一定要求进行排序，因此在Group(A=a0)的reduce函数中，可对数据进行一次扫描且只用少量内存，即可计算这条pipeline中与A=a0值相关的其他group。
+由于 PipeSort 的使用，mapper 的输出不再是映射所有的 region，而仅需要映射 每个pipeline 中的一个 region 即可。在这里 mapper 的key值选择 pipeline的末尾region 作为映射，而将剩余属性的值以及度量值放在value中。因此对于记录e1，mapper输出的key为[region\_id, a0]，value的输出为[b0, c0, d0, m0]。根据MapReduce的机制，具有相同group值的数据都会放在同一个reduce函数中计算，因此Group(A=a0)的数据都放在同一个reduce函数中计算。由于value中包含了pipeline的其他属性BCD的值，以及度量属性M的值，并且用户可重载MapReduce的函数，令value按照一定要求进行排序，因此在Group(A=a0)的reduce函数中，可对数据进行一次扫描且只用少量内存，即可计算这条pipeline中与A=a0值相关的其他group。
 
 倘若上述的pipeline映射的不是region(A)，而是pipeline中其他的region，例如region(AB)，即mapper输出的key值为属性AB组成的值，那么 region(A)的每一个group都被拆分到多个reduce函数中，导致之后还需要进行合并操作，并且这样也无法计算一条完整的pipeline，因为这条pipeline到了属性AB就被终止了。因此在pipesort与分布式数据立方结合的计算中，mapper 输出的 key值为pipelinee 末尾region对应的属性值，value 值为起始region的属性除去 末尾region的属性后对应的属性值以及度量值。起始region 指pipeline中第一个region，末尾region指pipeline中最后一个region。在$ABCD\rightarrow ABC\rightarrow AB\rightarrow A$ 这个pipeline中，ABCD为起始region，A为末尾region。
 
 
 
-\subsection{TeraSort与Pipesort的整合}
+\subsection{TeraSort与PipeSort的整合}
 
-由于TSP-Cube使用了TeraSort，TeraSort会将大group进行划分，因此之后必定需要合并操作。所以 TSP-Cube 需要执行3次MapReduce完成数据立方的计算。第一轮 MapReduce 是采样以及选取分界点，第二轮 MapReduce 结合 Pipesort 计算数据立方，第三轮MapReduce 对上一轮输出的结果进行合并。
+由于TSP-Cube使用了TeraSort，TeraSort会将大group进行划分，因此之后必定需要合并操作。所以 TSP-Cube 需要执行3次MapReduce完成数据立方的计算。第一轮 MapReduce 是采样以及选取分界点，第二轮 MapReduce 结合 PipeSort 计算数据立方，第三轮MapReduce 对上一轮输出的结果进行合并。
 
-由于将 TeraSort 与 Pipesort 结合，因此这里第一轮 MapReduce 的采样数据与前面不考虑 Pipesort 的采样有所不同。在之前的章节中提到，使用TeraSort，第一轮与第二轮 mapper 输出的key值需要一致，才能进行比较，从而确定数据落到哪个reducer上。由于第二轮的 MapReduce 与 Pipesort 结合，不再需要映射所有的region，只需要映射pipeline末尾的region，因此第一轮采样的数据也不需要映射所有的region，只需要映射pipeline末尾的region即可。并且这两轮MapReduce中 mapper的输出依然是[region\_id, group\_value, tuple\_id or measure\_value] 这样的复合键。
+由于将 TeraSort 与 PipeSort 结合，因此这里第一轮 MapReduce 的采样数据与前面不考虑 PipeSort 的采样有所不同。在之前的章节中提到，使用TeraSort，第一轮与第二轮 mapper 输出的key值需要一致，才能进行比较，从而确定数据落到哪个reducer上。由于第二轮的 MapReduce 与 PipeSort 结合，不再需要映射所有的region，只需要映射pipeline末尾的region，因此第一轮采样的数据也不需要映射所有的region，只需要映射pipeline末尾的region即可。并且这两轮MapReduce中 mapper的输出依然是[region\_id, group\_value, tuple\_id or measure\_value] 这样的复合键。
 
 
 %这里需要为 MapReduce 的机制进行一些说明。在默认的 MapReduce 中，只有具有相同 key 值的数据才会放在同一个 reduce 函数中计算。而在 TSP-Cube 第二轮 MapReduce 中 mapper 输出的 key 值为 [region\_id, group\_value, tuple\_id or measure\_id]，是一个复合键。按照默认规定，必须这3个值都相同才能放在同一个 reduce 函数内计算。但其实 MapReduce 的框架为此提供了灵活的变化。用户可重载 GroupPartitioner 函数，此函数是定义在同一个 reducer 内，具有什么特征的数据会被放在同一个 reduce 函数中计算。由于TSP-Cube 的特殊性，这里需要重载 GroupPartioner，规定在同一个reducer内，只要 region\_id 和 group\_value 相同的数据即可放在同一个 reduce 函数内计算。

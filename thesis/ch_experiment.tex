@@ -45,17 +45,17 @@ D2B 的数据分布与 D2A 基本一致，但 uid 是倾斜分布的，若使用
 
 \section{比较算法}
 
-TSP-Cube 除了与 Naive 和 MR-Cube 的方法比较外，还将与 Naive-Pipesort 与 TopDownCube \cite{lee2012efficient} 进行比较。
+TSP-Cube 除了与 Naive 和 MR-Cube 的方法比较外，还将与 Naive-PipeSort 与 TopDownCube \cite{lee2012efficient} 进行比较。
 
-Naive-Pipesort 是不对group进行任何划分，只将多个group放在同一个reduce函数内计算，并且使用与TSP-Cube一致的计算方法——Pipesort 计算同一个reduce函数内的多个group。将TSP-Cube与这个方法比较，是为了查看当数据倾斜时，reduce是否会出现严重的负载不均衡，并且查看数据划分是否能提升计算效率。
+Naive-PipeSort 是不对group进行任何划分，只将多个group放在同一个reduce函数内计算，并且使用与TSP-Cube一致的计算方法——PipeSort 计算同一个reduce函数内的多个group。将TSP-Cube与这个方法比较，是为了查看当数据倾斜时，reduce是否会出现严重的负载不均衡，并且查看数据划分是否能提升计算效率。
 
-TopDownCube，是将 Pipesort 与 MapReduce 结合的一种方法。Pipsort最根本的思想是对``数据”不断地排序，这个``数据”可能是原数据，也可能是已经计算好GroupBy的数据。TopDownCube沿用了\cite{agarwal1996computation} 中构造pipe树的方法，并且使用 MapReduce 对每个pipeline中的数据都按照起始 region 的属性顺序进行排序。这个方法的缺点是需要执行多次MapReduce，因为该方法会对于每个 pipeline都执行一次 MapReduce，将数据按照起始region的属性顺序排序。排序后它可以将多个 region 放在同一个 reducer 上计算，并且由于不是所有排序都基于原数据，因此产生的中间数据比 Naive-Pipesort要少。但这种方法并没有考虑整体性度量函数，因此该方法更适合代数度量函数的计算。
+TopDownCube，是将 PipeSort 与 MapReduce 结合的一种方法。Pipsort最根本的思想是对``数据”不断地排序，这个``数据”可能是原数据，也可能是已经计算好GroupBy的数据。TopDownCube沿用了\cite{agarwal1996computation} 中构造pipe树的方法，并且使用 MapReduce 对每个pipeline中的数据都按照起始 region 的属性顺序进行排序。这个方法的缺点是需要执行多次MapReduce，因为该方法会对于每个 pipeline都执行一次 MapReduce，将数据按照起始region的属性顺序排序。排序后它可以将多个 region 放在同一个 reducer 上计算，并且由于不是所有排序都基于原数据，因此产生的中间数据比 Naive-Pipesort要少。但这种方法并没有考虑整体性度量函数，因此该方法更适合代数度量函数的计算。
 
 实验代码GitHub地址：\url{https://github.com/abcdmyz/MapReduceDataCube}
 
 \section{实验结果}
 
-对以上算法的比较主要包括，在不同的数据分布以及数据大小下，算法的运行时间， 各个reducer输入的记录数。通过算法的运行时间比较各个算法的效率，通过各个 reducer 输入的记录数查看数据划分对各个reducer 之间的负载均衡影响。最后还比较了 MR-Cube 与 TSP-Cube 在第二次MapReduce后，即数据立方计算后，需要合并的数据量，以及 TSP-Cube 3次MapReduce各占的比例。
+对以上算法的比较主要包括，在不同的数据分布以及数据大小下，算法的运行时间， 各个reducer输入的记录数。通过算法的运行时间比较各个算法的效率，通过各个 reducer 输入的记录数查看数据划分对各个reducer 之间的负载均衡影响。最后还比较了 MR-Cube 与 TSP-Cube 在第二次MapReduce后，即数据立方计算后，需要合并的数据量和合并过程的运行时间，以及 TSP-Cube 3次MapReduce各占的比例。
 
 以下分别从不同类型的度量函数来分析实验结果。
 
@@ -66,15 +66,15 @@ TopDownCube，是将 Pipesort 与 MapReduce 结合的一种方法。Pipsort最�
 
 \begin{itemize}
 
-\item \textbf{Naive, Naive-Pipesort}
+\item \textbf{Naive, Naive-PipeSort}
 
-Naive方法 无论在任何一种分布下所花费的时间都是最多的。在D1的数据分布下，Naive-Pipesort的方法的运行时间是最短的，但与MR-Cube和TSP-Cube相比，优势并不大。在D2的分布下，Naive-Pipesort的性能则大打折扣。这是因为对于极端倾斜的数据分布，就算在Naive的基础上加上了PipeSort，但由于D2中的一些group的大小差距非常大（D2是2/8分的分布），而这些大group并没有进行划分，导致 reducer之间的负载极度不均衡，最终仍然使性能下降。由于D2的倾斜性比D1明显，因此Naive-Pipesort的缺点在D2中更能体现。从图\ref{d2a_distinct_input}和图\ref{d2b_distinct_input} 可看出 Naive-Pipesort 的方法各个reducer输入的数据量有较大的差距，尤其有3个reducer输入的数据量特别大，导致了整体的执行时间变长。
+Naive方法 无论在任何一种分布下所花费的时间都是最多的。在D1的数据分布下，Naive-Pipesort的方法的运行时间是最短的，但与MR-Cube和TSP-Cube相比，优势并不大。在D2的分布下，Naive-Pipesort的性能则大打折扣。这是因为对于极端倾斜的数据分布，就算在Naive的基础上加上了PipeSort，但由于D2中的一些group的大小差距非常大（D2是2/8分的分布），而这些大group并没有进行划分，导致 reducer之间的负载极度不均衡，最终仍然使性能下降。由于D2的倾斜性比D1明显，因此Naive-Pipesort的缺点在D2中更能体现。从图\ref{d2a_distinct_input}和图\ref{d2b_distinct_input} 可看出 Naive-PipeSort 的方法各个reducer输入的数据量有较大的差距，尤其有3个reducer输入的数据量特别大，导致了整体的执行时间变长。
 
 \item \textbf{TopDownCube}
 
-对于 TopDownCube的方法，在D1中仅比Naive的方法好，这是因为它要进行多次的MapReduce对数据进行排序，但uid的取值范围较大，无法大量压缩，中间数据仅减少了小部分，多次``低效”的排序导致它需要较长的运行时间。而在D2A分布中，它比Naive-Pipesort的方法有优势。因为 D2A 的数据比 D1 更倾斜，对于Naive-Pipesort而言，其负载不均衡的情况比 TopDownCube更严重。因为TopDown通过对数据多次排序，减少了部分的中间数据，尽管减少的量并不大，但是与Naive-Pipesort相比，能降低负载不均衡的严重性，因此TopDownCube 与 Naive-Pipesort 相比有一定的优势。
+对于 TopDownCube的方法，在D1中仅比Naive的方法好，这是因为它要进行多次的MapReduce对数据进行排序，但uid的取值范围较大，无法大量压缩，中间数据仅减少了小部分，多次``低效”的排序导致它需要较长的运行时间。而在D2A分布中，它比Naive-Pipesort的方法有优势。因为 D2A 的数据比 D1 更倾斜，对于Naive-Pipesort而言，其负载不均衡的情况比 TopDownCube更严重。因为TopDown通过对数据多次排序，减少了部分的中间数据，尽管减少的量并不大，但是与Naive-Pipesort相比，能降低负载不均衡的严重性，因此TopDownCube 与 Naive-PipeSort 相比有一定的优势。
 
-但与TSP-Cube相比，在任何一种数据分布中，运行时间都比TSP-Cube的要长，这也因为数据倾斜导致的。因为TopDown没有对数据进行划分，reducer之间的负载差距依然存在，即使它使用多轮MapReduce减少中间数据。从图\ref{d1_distinct_input}、图\ref{d2a_distinct_input}可看出TopDownCube中各个reducer之间有一定差距，而TPS-Cube的各个reducer之间是非常均匀的。总体而言，将TopDownCube的方法运用在计算整体性度量函数中，优势并不明显。
+但与TSP-Cube相比，在任何一种数据分布中，运行时间都比TSP-Cube的要长，这也是因为数据倾斜导致的。因为TopDown没有对数据进行划分，reducer之间的负载差距依然存在，即使它使用多轮MapReduce减少中间数据。从图\ref{d1_distinct_input}、图\ref{d2a_distinct_input}可看出TopDownCube中各个reducer之间有一定差距，而TPS-Cube的各个reducer之间是非常均匀的。总体而言，将TopDownCube的方法运用在计算整体性度量函数中，优势并不明显。
 
 \item \textbf{MR-Cube, TSP-Cube}
 
@@ -136,13 +136,13 @@ TSP-Cube与MR-Cube相比，在三种分布下，TSP-Cube的运行时间都比MR-
 \end{figure}
 
 
-除了比较运行时间与reducer的负载外，以下还将比较MR-Cube与TSP-Cube在不同分布下，在第三轮MapReduce时，需要合并的数据量，以及TSP-Cube的3次MapReduce分别占总时间的比例。在前面的章节提到，MR-Cube对group的划分方法在一些场景下会导致不必要的划分，从而加重了之后的合并操作，因此这里将两种方法需要合并的数据量进行比较，从而说明TSP-Cube需要进行合并的数据比MR-Cube更少。
+除了比较运行时间与reducer的负载外，以下还将比较MR-Cube与TSP-Cube在不同分布下，在第三轮MapReduce时，需要合并的数据量和合并的运行时间，以及TSP-Cube的3次MapReduce分别占总时间的比例。在前面的章节提到，MR-Cube对group的划分方法在一些场景下会导致不必要的划分，从而加重了之后的合并操作，因此这里将两种方法需要合并的数据量和合并的运行时间进行比较，从而说明TSP-Cube需要进行合并的数据比MR-Cube更少。
 
 图\ref{d1_distinct_interdata}和图\ref{d2a_distinct_interdata}分别为MR-Cube与TSP-Cube在D1和D2A数据分布下，需要合并的数据量。图\ref{d1_distinct_intertime}和图\ref{d2a_distinct_intertime}为合并时间。在D1中，由于数据倾斜性并不明显，因此两者需要合并的数据量差别不大，时间上差别也不大。但在D2A中，由于数据的倾斜性较明显，而MR-Cube会对数据产生不必要的划分，因此随着数据量增大，MR-Cube要合并的数据比TSP-Cube要多，合并时间更长。
 
 图\ref{d1_distinct_mr123}和图\ref{d2a_distinct_mr123} 分别为TSP-Cube在D1和D2A数据分布，数据集大小为 ${10}^{9}$ 下，三次MapReduce占总体时间的比例。随着数据量增大，MR1和MR3所占的比例都会减少。因此花费一定代价对数据进行划分从而使数据分配均匀对总体性能的提升是有意义的。
 
-从以上实验可看出，TSP-Cube相对于其他方法并不是``完美无缺”或者各方面``遥遥领先”的，它在一些数据分布下，跟大部分的方法相比，在性能上的优势并不明显。但在一些较为倾斜的数据分布下，它能表现出它性能的优势。TSP-Cube 无论在一般数据分布下，或者倾斜的数据分布下，均能对数据进行均匀的划分，令各个reducer上的数据负载均衡，从而提升计算性能。并且 TSP-Cube中的Pipesort方法简单且有效，能令数据立方计算过程中的中间数据大大减少，从而也提升了计算性能。因此由以上的实验得出，TSP-Cube 比 MR-Cube 更具有通用性，在一些更为倾斜的数据集下，有明显的优势。
+从以上实验可看出，TSP-Cube相对于其他方法并不是``完美无缺”或者各方面``遥遥领先”的，它在一些数据分布下，跟大部分的方法相比，在性能上的优势并不明显。但在一些较为倾斜的数据分布下，它能表现出它性能的优势。TSP-Cube 无论在一般数据分布下，或者倾斜的数据分布下，均能对数据进行均匀的划分，令各个reducer上的数据负载均衡，从而提升计算性能。并且 TSP-Cube中的PipeSort方法简单且有效，能令数据立方计算过程中的中间数据大大减少，从而也提升了计算性能。因此由以上的实验得出，TSP-Cube 比 MR-Cube 更具有通用性，在一些更为倾斜的数据集下，有明显的优势。
 
 
 

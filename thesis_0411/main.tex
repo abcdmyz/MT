@@ -1,0 +1,183 @@
+%%&xelatex
+\documentclass{sysuthesis}
+
+\usepackage{float}
+%\usepackage[ruled,vlined]{algorithm2e}
+%\SetKwInput{KwSetup}{Setup}
+%SetKwInput{KwMap}{Map}
+%\SetKwInput{KwReduce}{Reduce}
+\usepackage{algorithm}
+%\usepackage{algorithmic}
+%\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+
+%\usepackage[hidelinks]{hyperref}
+
+\usepackage{layout}
+\usepackage{indentfirst}% not needed if xecjk
+\setlength{\parindent}{2em}
+\usepackage{ifthen}
+\usepackage{dcolumn}	% 
+\usepackage{multirow}	%
+\usepackage{mdwlist}	% 
+\usepackage{verbatim}	% 
+%\usepackage{subscript}	% \textsubscript without math
+%\usepackage[superscript,nocompress,nobreak,nomove]{cite} % for overcite
+\usepackage{amsmath}
+\DeclareMathOperator{\diff}{d\!}
+\DeclareMathOperator{\ee}{e}
+\DeclareMathOperator{\imag}{i}
+\usepackage{amsfonts}
+\usepackage{amssymb}	% conflict with xunicode, thus go before it
+
+\usepackage{ifxetex}
+\ifxetex
+\usepackage{xltxtra}
+\usepackage{xunicode}
+\usepackage{fontspec}	%[no-math]
+\defaultfontfeatures{Mapping=tex-text}
+% fonts winfonts/cjkfonts(arphic)/adobefonts/fzfonts
+% LM (Latin Modern) and Bitstream Vera don't have Greek latters;
+% Liberation, just like Microsoft's Times New Roman, don't do ligature;
+% DejaVu is too large, unmatch the CJK font in the same size;
+% Free fonts are good:
+%\setmainfont{FreeSerif}
+%\setsansfont{FreeSans}
+%\setmonofont{FreeMono}
+% Adobe PostScript T1: Times/Helvetica/Courier;
+% Adobe OpenType: MyriadPro/MinionPro/CourierStd.
+% Microsoft Windows TrueType
+%\setmainfont{Times New Roman}
+%\setsansfont{Arial}
+%\setmonofont{Courier New}
+%\usepackage{xCJK}	% if use pkg verbatim, \CJKverbatim after loading
+\usepackage[BoldFont,SlantFont,CJKnumber]{xeCJK}
+%\usepackage{winfonts}	% I almost agree with ctex
+\setCJKmainfont[ItalicFont=KaiTi_GB2312]{SimSun}
+\setCJKsansfont{SimHei}
+\setCJKmonofont{FangSong_GB2312}
+%\usepackage{freefonts}	% Free as in freedom.
+%\setCJKmainfont[ItalicFont=AR PL UKai CN]{AR PL UMing CN}
+%\setCJKsansfont{WenQuanYi Zen Hei}
+%\usepackage{adobefonts}	% I almost agree with ctex
+%\setCJKmainfont[ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
+%\setCJKsansfont{Adobe Heiti Std}
+%\setCJKmonofont{Adobe Fangsong Std}
+%\setCJKfamilyfont{}[]{}
+%\XeTeXlinebreaklocale "zh" % No longer needed
+%\XeTeXlinebreakskip = 0pt plus 1pt %中文断行, No longer needed
+\else
+\usepackage{CJKutf8}
+\usepackage{CJKnumb}	% should be before \renewcommand below
+\fi
+
+
+\usepackage{multirow}
+\renewcommand\figurename{图}
+\renewcommand\tablename{表}
+
+
+\let\oldenumerate\enumerate
+\renewcommand{\enumerate}{
+  \oldenumerate
+  \setlength{\itemsep}{1pt}
+  \setlength{\parskip}{1pt}
+  \setlength{\parsep}{1pt}
+}
+
+
+\usepackage{graphicx}	% 
+\graphicspath{{other/}}
+\usepackage[abs]{overpic}\setlength\unitlength{1bp}
+\usepackage{tikz}	% great picture package
+\usetikzlibrary{shapes.multipart}
+\usetikzlibrary{decorations.pathmorphing}
+\usetikzlibrary{decorations.shapes}
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{shapes.symbols}
+\usepackage[version=3]{mhchem}	% \ce{} for typesetting chemical molecular
+\usepackage{hyperref}	% hyperref to URL or internal target
+\hypersetup{
+	%unicode,	% not use if XeLaTeX
+	%bookmarks,	% used by default
+	%CJKbookmarks,	% produce bookmarks localized for CJK, e.g., GB2312
+	colorlinks=false,	% for printing with gray printer
+	%linkcolor=blue,
+	%citecolor=blue,
+	%urlcolor=blue,
+	plainpages=true,
+	pdfauthor={Alexander Huang <huangloligo@gmail.com>},
+	%pdftitle={Dissertation submitted for PhD in SYsU},
+	pdfview=FitH,
+	pdfpagemode=UseOutlines
+}
+\usepackage{pdfpages}	% 并入答辩委员们签了名的扉页扫描版 
+\newcommand{\Print}{\boolean{true}}%如果 false, 则会并入扉页扫描版 
+\makeatletter
+\newcommand{\AAstar}{\@ifstar{AA**}{AA}}	% 定义 \foo 和 \foo* 命令。
+\def\@cite#1#2{\textsuperscript{[{#1\if@tempswa , #2\fi}]}}
+\makeatother
+\newcommand{\Verbatiminput}[1]{\noindent\rule{\textwidth}{2pt}{%
+	\small\linespread{0.9}\verbatiminput{#1}
+	}\noindent\rule{\textwidth}{2pt}}
+
+
+\title{分布式数据立方计算\\ 
+	}{Distributed Data Cube Computation}
+	
+	
+\author{周盈莹}{Yingying Zhou}
+\major{软件工程}{Software Engineering}
+%\minor{研究领域}
+%\school{生命科学学院}
+\supervisor{冯剑琳\ 教授}{Prof. Jianlin Feng}
+
+\date{2014年4月14日}
+
+\begin{document}
+\ifxetex\else
+\begin{CJK*}{UTF8}{gbsn}
+\fi
+\pagestyle{empty}%
+\ifthenelse{\Print}{\maketitlepage[%
+	\begin{flushleft}
+	\begin{tabular}{rl@{}l}
+	%答辩委员会	&（签名）	&\\
+	论文答辩委员会主席：		&\underline{~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}\\
+	成员：					&\underline{~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}\\
+							&\underline{~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}\\
+							&\underline{~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~}\\
+	\end{tabular}
+	\end{flushleft}]}{\includepdf{main_title.pdf}}% 生成扉页或并入扫描版
+
+
+\frontmatter
+\ifthenelse{\Print}{\include{frontmatter}}{%
+	\includepdf{main_declare.pdf}}% 生成原创性声明或并入扫描版
+\cleardoublepage\pagestyle{headings}\setcounter{page}{1}\pagenumbering{Roman}%
+\include{abstract}
+\setcounter{page}{1}\pagenumbering{roman}%
+\clearpage\setcounter{tocdepth}{1}%
+\tableofcontents
+%\clearpage\listoffigures
+%\clearpage\listoftables
+
+\mainmatter
+%\layout
+\include{mainmatter}
+%\bibliographystyle{unsrt}
+\bibliographystyle{sysuthesis}
+\bibliography{main,reference}
+
+%\appendix
+%\include{appendix}
+
+\backmatter
+\include{backmatter}%致谢之类的
+\ifxetex\else
+\end{CJK*}
+\fi
+
+\end{document}
+
+% vim: textwidth=72 : fileencoding=utf8 :

@@ -595,7 +595,7 @@
 %	Sun Yat-Sen University}
 \newcommand{\detailnameenglish}{
 	\begin{tabular}{rl}
-	Major:		&\@majorenglish\\
+	Marjor:		&\@majorenglish\\
 	Name:		&\@authorenglish\\
 	Supervisor:	&\@supervisorenglish\\
 	\end{tabular}\par

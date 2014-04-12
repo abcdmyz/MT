@@ -1,8 +1,8 @@
-git add *.sh
-git add *.bib
-git add *.tex
-git add *.cls
-git add *.bst
-git add *.xlsx
-git add *.png
-git add *.eps
+git add -A *.sh
+git add -A *.bib
+git add -A *.tex
+git add -A *.cls
+git add -A *.bst
+git add -A *.xlsx
+git add -A *.png
+git add -A *.eps

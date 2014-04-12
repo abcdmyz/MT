@@ -1,0 +1,34 @@
+
+\begin{abstract}
+
+
+数据立方(Data Cube)是一种有效支持 OLAP 的多维数据计算模型。它通过预先计算数据表中各属性间所有组合对应的 GroupBy 结果并存储起来，以缩短系统的响应时间从而提高查询效率。随着数据量的急剧增长，分布式计算(如MapReduce)的使用日益广泛，将数据立方计算与分布式结合是必然的趋势。
+
+对于代数度量，如 SUM 等，简单地采用 MapReduce 框架即可高效地完成数据立方的计算。但对于整体性度量，如DISTINCT等，若与MapReduce 简单地结合，则会出现负载不均衡、中间数据过多等问题。当前最好的分布式数据立方计算算法MR-Cube，通过数据划分、合并计算的方法减缓上述问题。但是该算法对数据划分不够精准，会导致一些不必要的数据划分，加重之后的合并操作。而对于合并计算，该算法仅提出了一些规则，而无简单且有效的合并方法，并且进行合并计算时使用 BUC 算法亦未充分利用 MapReduce 框架的特性。
+
+为了更好地解决负载不均衡、中间数据过多的问题，本论文借鉴TeraSort与PipeSort，提出TSP-Cube算法。TSP-Cube 借鉴 TeraSort 随机抽样的思想，根据数据出现的频率对数据进行划分，不仅可以有效避免不必要的划分，并且适用于各种分布类型的数据集，从而有效解决负载不均匀的问题。同时TSP-Cube采用能充分利用 MapReduce 框架特性的 PipeSort 替代 MR-Cube 中的 BUC 进行合并计算，并且针对层次型的数据集，根据其属性特征以及PipeSort的特性，提出更简单有效且均匀的合并计算方案，从而解决中间数据过多的问题。
+
+最后，论文通过实验证明，无论在均匀分布或是倾斜分布下，TSP-Cube 在整体性度量函数中都有更好的性能，比已有的分布式算法更通用。此外，实验中还包括了多种算法在代数度量下的比较，从而得出不同类型的度量应采用的方法。
+
+\keyword{数据立方，分布式，MapReduce，TeraSort}
+\end{abstract}
+
+
+\begin{abstract}[english]
+
+Data cube is a multi-dimensional data model which effectively supports OLAP. It calculates and stores results of Groupby of all combinations of all attributes so as to reduce the respond time of queries and improve the application efficiency. As the explosion of massive data,the distributed computation is more and more widely used. So the combination of data cube computation and distributed framework is an efficient way to materialize data cube.
+
+Currently the integration of MapReduce and data cube works well with algebraic measures. This is because some features of algebraic measures fit well with MapReudce. While for holistic measures, such as DISTINCT, if they just integrate with MapReudce the way as algebraic measures do, it may causes some problems. Load unbalance and tons of intermediate data are the two main problems. Some recent papers which propose MR-Cube try to solve these two problems through data partitioning and batch calculation. While those data partitioning methods cause unnecessary partition and may still lead to load unbalance under extreme skewed circumstance. For batch calculation, those papers only propose some rules rather than a simple and specific batch method. Furthermore, MR-Cube uses BUC algorithm to calculate GroupBy of several groups in a batch, which does not make good use of features of MapReduce.
+
+In this paper, we propose TSP-Cube which is inspired by TeraSort and PipeSort. TSP-Cube uses the main idea of TeraSort to improve existing data partitioning methods. It locates partitioning points according to the frequency of data. It reduces and even avoids unnecessary data partitioning. No matter under uniform distribution or extreme skewed distribution, it still can partition data evenly. In the mean while, TSP-Cube uses PipeSort for batch calculation instead of BUC. This is because PipeSort can provide simple but efficient batch calculation and it takes fully advantages of MapReduce. In addition, TSP-Cube puts forward a pipeline generation method which is specific for hierarchical data set as such data set has its special features of attributes which is suitable for PipeSort. 
+
+Finally, this paper compare TSP-Cube with several data cube materialization methods under various data distributions. The result shows that wherever under uniform distribution or extreme skewed distribution, TSP-Cube performs better than others under the holistic measure. The experiment also includes an algebraic measure, which is to analyse and conclude the best solutions for different situations.
+
+
+\keywordenglish{Data Cube，Distribution，MapReduce，TeraSort}
+\end{abstract}
+
+
+
+
+%数据立方 (Data Cube) 是一种有效支持 OLAP 的多维数据计算模型。它通过预先计算数据表中各属性间所有组合对应的 GroupBy 结果并存储起来,以缩短系统的查询响应时间从而提高应用效率。随着数据量的急剧增长,分布式计算 (如MapReduce) 的使用越来越广泛。因此将数据立方计算与分布式结合是必然的趋势。目前 MapReduce 与数据立方在代数度量函数下,如 SUM 等,已经有较好的结合。但对于整体性度量函数,如 DISTINCT 等,若与 MapReduce 简单地结合,会出现负载不均衡、中间数据过多等问题,从而对性能有较大的影响。尽管已经有论文提出 MR-Cube 算法,通过数据划分、合并计算的方法解决上述问题,但是该算法对数据划分并不够精准,会产生一些不必要的数据划分,加重之后的合并操作。而对于合并计算,该算法仅提出了一些规则,而无简单且有效的合并方法。并且该算法使用 BUC 进行合并计算,并未充分利用 MapReduce 框架的特性。本论文借鉴 TeraSort 与 PipeSort,提出 TSP-Cube。TSP-Cube 根据 TeraSort的思想,改进了数据的划分方式。它根据数据出现的频率,准确地定位需要划分的数据,减少甚至避免不必要的划分,并且无论在一般或者倾斜的数据集下,都能均匀地划分数据。同时 TSP-Cube 提出使用 PipeSort 替代已有论文中的 BUC 方法计算数据立方,充分利用 MapReduce 框架的特性。TSP-Cube 还针对层次型的数据集,根据其属性特征以及 PipeSort 的特性,提z更简单有效且均匀的合并计算方案,从而解决中间数据过多的问题。最后论文通过实验比较 TSP-Cube 与多种算法在不同的数据分布下性能、负载等方面的差别,从而验证无论在均匀分布或是倾斜分布下,TSP-Cube 在整体性度量函数计算中也能有较好的性能,比已有的方法更具有通用性。实验中还包括了多种算法在代数度量函数下的比较,从而分析不同类型的度量应使用的方法。

@@ -390,6 +390,10 @@
 	% It seems strange to \addcontentsline for the toc itself, but
 	%	the LS of SYsU asked me to do that, and it is really
 	%	convinient when read pdf with nevigation panel.
+
+%  \addcontentsline{toc}{section}{参考文献} %在目录中添加“参考文献”的标记
+%  \bibliography{bib}
+
     \@starttoc{toc}%
     \if@restonecol\twocolumn\fi
     }

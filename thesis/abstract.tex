@@ -2,13 +2,13 @@
 \begin{abstract}
 
 
-数据立方(Data Cube)是一种有效支持 OLAP 的多维数据计算模型。它通过预先计算数据表中各属性间所有组合对应的 GroupBy 结果并存储起来，以缩短系统的响应时间从而提高查询效率。随着数据量的急剧增长，分布式计算(如MapReduce)的使用日益广泛，将数据立方计算与分布式结合是必然的趋势。
+数据立方(Data Cube)是一种有效支持 OLAP 的多维数据计算模型。它通过预先计算数据表中各属性间所有组合对应的 GroupBy 结果并将其存储起来，以缩短系统的响应时间从而提高查询效率。随着数据量的急剧增长，分布式计算(如MapReduce)的使用日益广泛，将数据立方计算与分布式结合是必然的趋势。
 
 对于代数度量，如 SUM 等，简单地采用 MapReduce 框架即可高效地完成数据立方的计算。但对于整体性度量，如DISTINCT等，若与MapReduce 简单地结合，则会出现负载不均衡、中间数据过多等问题。当前最好的分布式数据立方计算算法MR-Cube，通过数据划分、合并计算的方法减缓上述问题。但是该算法对数据划分不够精准，会导致一些不必要的数据划分，加重之后的合并操作。而对于合并计算，该算法仅提出了一些规则，而无简单且有效的合并方法，并且进行合并计算时使用 BUC 算法亦未充分利用 MapReduce 框架的特性。
 
-为了更好地解决负载不均衡、中间数据过多的问题，本论文借鉴TeraSort与PipeSort，提出TSP-Cube算法。TSP-Cube 借鉴 TeraSort 随机抽样的思想，根据数据出现的频率对数据进行划分，不仅可以有效避免不必要的划分，并且适用于各种分布类型的数据集，从而有效解决负载不均匀的问题。同时TSP-Cube采用能充分利用 MapReduce 框架特性的 PipeSort 替代 MR-Cube 中的 BUC 进行合并计算，并且针对层次型的数据集，根据其属性特征以及PipeSort的特性，提出更简单有效且均匀的合并计算方案，从而解决中间数据过多的问题。
+为了更好地解决负载不均衡、中间数据过多的问题，本论文借鉴TeraSort与PipeSort，提出TSP-Cube算法。TSP-Cube 借鉴 TeraSort 随机抽样的思想，根据数据出现的频率对数据进行划分，不仅可以有效避免不必要的划分，并且适用于各种分布类型的数据集，从而有效解决负载不均衡的问题。同时TSP-Cube采用能充分利用 MapReduce 框架特性的 PipeSort 替代 MR-Cube 中的 BUC 进行合并计算，并且针对层次型的数据集，根据其属性特征以及PipeSort的特性，采用更简单有效且均匀的合并计算方案，从而解决中间数据过多的问题。
 
-最后，论文通过实验证明，无论在均匀分布或是倾斜分布下，TSP-Cube 在整体性度量函数中都有更好的性能，比已有的分布式算法更通用。此外，实验中还包括了多种算法在代数度量下的比较，从而得出不同类型的度量应采用的方法。
+论文通过实验证明，无论在均匀分布或是倾斜分布下，TSP-Cube 在整体性度量函数中都有更好的性能，比已有的分布式算法更通用。此外，实验还对多种算法在代数度量下的性能进行了比较，从而得出不同类型的度量应采用的方法。
 
 \keyword{数据立方，分布式，MapReduce，TeraSort}
 \end{abstract}
@@ -16,13 +16,14 @@
 
 \begin{abstract}[english]
 
-Data cube is a multi-dimensional data model which effectively supports OLAP. It calculates and stores results of Groupby of all combinations of all attributes so as to reduce the respond time of queries and improve the application efficiency. As the explosion of massive data,the distributed computation is more and more widely used. So the combination of data cube computation and distributed framework is an efficient way to materialize data cube.
 
-Currently the integration of MapReduce and data cube works well with algebraic measures. This is because some features of algebraic measures fit well with MapReudce. While for holistic measures, such as DISTINCT, if they just integrate with MapReudce the way as algebraic measures do, it may causes some problems. Load unbalance and tons of intermediate data are the two main problems. Some recent papers which propose MR-Cube try to solve these two problems through data partitioning and batch calculation. While those data partitioning methods cause unnecessary partition and may still lead to load unbalance under extreme skewed circumstance. For batch calculation, those papers only propose some rules rather than a simple and specific batch method. Furthermore, MR-Cube uses BUC algorithm to calculate GroupBy of several groups in a batch, which does not make good use of features of MapReduce.
+Data cube is a multidimensional data model which effectively supports OLAP. It can reduce the responding time of queries and improve the efficiency of application via pre-calculating and storing results of GroupBys of all combinations of attributes. As the explosion of massive data, it is an inevitable trend of the integration of data cube materialization and distributed computing model (e.g. MapReduce), which has been more and more widely used.
 
-In this paper, we propose TSP-Cube which is inspired by TeraSort and PipeSort. TSP-Cube uses the main idea of TeraSort to improve existing data partitioning methods. It locates partitioning points according to the frequency of data. It reduces and even avoids unnecessary data partitioning. No matter under uniform distribution or extreme skewed distribution, it still can partition data evenly. In the mean while, TSP-Cube uses PipeSort for batch calculation instead of BUC. This is because PipeSort can provide simple but efficient batch calculation and it takes fully advantages of MapReduce. In addition, TSP-Cube puts forward a pipeline generation method which is specific for hierarchical data set as such data set has its special features of attributes which is suitable for PipeSort. 
+Data cube materialization can be efficiently completed by simply using the framework of MapReduce for algebraic measures, e.g. SUM. While for holistic measures, such as DISTINCT, if we just integrate with MapReduce as the way algebraic measures do, it will lead to the problems of load imbalance and tons of intermediate data. The state-of-the-art distributed algorithm MR-Cube try to alleviate these two problems via data partitioning and batch area calculation. However, MR-Cube is not accurate for data partitioning and may still lead to load imbalance under extremely skewed circumstance. In batch area calculation, MR-Cube only propose some rules rather than a simple and specific batch method, and the algorithm to calculate GroupBys is BUC, which cannot make full use of the performance of the framework of MapReduce. 
 
-Finally, this paper compare TSP-Cube with several data cube materialization methods under various data distributions. The result shows that wherever under uniform distribution or extreme skewed distribution, TSP-Cube performs better than others under the holistic measure. The experiment also includes an algebraic measure, which is to analyse and conclude the best solutions for different situations.
+In this paper, we propose TSP-Cube which borrows ideas from TeraSort and PipeSort, in order to thoroughly solve the problem of load imbalance and tons of intermediate data. Borrowing from the idea of random sample of TeraSort, TSP-Cube partitions the data according to the frequencies of data in sampling, which not only reduces or even avoids unnecessary data partitioning, but also be suitable for different types of distribution. Meanwhile TSP-Cube applies Pipesort instead of BUC for batch area calculation, because PipeSort can take fully advantages of the characteristic of the framework of MapReduce. In addition, for the specific hierarchical data set, TSP-Cube puts forward a pipeline generation method for the generation of batch area according to the features of attributes of data sets and the characteristic of PipeSort, and then solves the problem of tons of intermediate data.  
+
+Finally, we demonstrate that, TSP-Cube has better performance and more general in cube materialization with holistic measures, compared with current state-of-the-art algorithms, no matter under uniform distribution or extreme skewed distribution. The experiment also includes a comparison of algebraic measures, and then we can give a conclusion about the best algorithms under different situations.
 
 
 \keywordenglish{Data Cube，Distribution，MapReduce，TeraSort}
